@@ -197,7 +197,7 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
                   }
                   final age = int.tryParse(value);
                   if (age == null || age < 1 || age > 120) {
-                    return 'Please enter a valid age';
+                    return 'Please enter a valid age (1-120)'; // More descriptive
                   }
                   return null;
                 },
@@ -277,14 +277,16 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
                 ),
                 keyboardType: TextInputType.number,
                 validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return locals.enterWeight;
+                  // Weight is optional, so only validate if value is NOT empty
+                  if (value != null && value.trim().isNotEmpty) {
+                    final weight =
+                        double.tryParse(value); // Use double.tryParse
+                    if (weight == null || weight < 1 || weight > 500) {
+                      // More realistic weight range
+                      return 'Please enter a valid weight (1-500 kg)';
+                    }
                   }
-                  final weight = int.tryParse(value);
-                  if (weight == null || weight < 1 || weight > 120) {
-                    return 'Please enter a valid Weight';
-                  }
-                  return null;
+                  return null; // Return null if empty (optional) or valid
                 },
               ),
               const SizedBox(height: 20),
@@ -300,14 +302,16 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
                 ),
                 keyboardType: TextInputType.number,
                 validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return locals.enterHeight;
+                  // Height is optional, so only validate if value is NOT empty
+                  if (value != null && value.trim().isNotEmpty) {
+                    final height =
+                        double.tryParse(value); // Use double.tryParse
+                    if (height == null || height < 50 || height > 250) {
+                      // More realistic height range
+                      return 'Please enter a valid height (50-250 cm)';
+                    }
                   }
-                  final height = int.tryParse(value);
-                  if (height == null || height < 1 || height > 120) {
-                    return 'Please enter a valid Height';
-                  }
-                  return null;
+                  return null; // Return null if empty (optional) or valid
                 },
               ),
               const SizedBox(height: 20),
@@ -410,11 +414,13 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _buildFeatureItem(Icons.bloodtype, locals.bloodSugar),
-                    _buildFeatureItem(Icons.water_drop, locals.bloodSugar),
                     _buildFeatureItem(
-                        Icons.directions_walk, locals.dailyActivity),
-                    _buildFeatureItem(Icons.medication, locals.medications),
+                        Icons.monitor_heart, locals.bloodPressure),
+                    _buildFeatureItem(Icons.bloodtype, locals.bloodSugar),
+                    _buildFeatureItem(
+                        Icons.directions_run, locals.dailyActivity),
+                    _buildFeatureItem(
+                        Icons.medical_services, locals.medications),
                   ],
                 ),
               ),
@@ -490,15 +496,12 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
               onPressed: _currentStep == 2 ? _finishSetup : _nextStep,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.primary,
-                // Primary color for action button
                 foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                // Text color on primary
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                // Larger touch target
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
-                elevation: 3, // Subtle shadow
+                elevation: 3,
               ),
               child: Text(
                 _currentStep == 2 ? locals.finish : locals.next,
@@ -515,12 +518,22 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
   }
 
   void _nextStep() {
-    if (_currentStep == 0 && !_step1Key.currentState!.validate()) {
-      return;
+    // Validate Step 1 before proceeding
+    if (_currentStep == 0) {
+      if (_step1Key.currentState == null ||
+          !_step1Key.currentState!.validate()) {
+        return;
+      }
     }
-    if (_currentStep == 1 && !_step2Key.currentState!.validate()) {
-      return; // Stay on current step if validation fails for optional fields
+    // Validate Step 2 before proceeding
+    // Note: The validators in _buildStep2 are now updated to handle optional fields correctly.
+    if (_currentStep == 1) {
+      if (_step2Key.currentState == null ||
+          !_step2Key.currentState!.validate()) {
+        return;
+      }
     }
+
     if (_currentStep < 2) {
       setState(() {
         _currentStep++;
@@ -546,64 +559,88 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
 
   void _finishSetup() async {
     final locals = AppLocalizations.of(context)!;
-
-    if (!_step1Key.currentState!.validate()) {
-      setState(() {
-        _currentStep = 0;
-      });
-      _pageController.animateToPage(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-      return;
+    bool validationPassed = true;
+    // Re-validate Step 1 form one last time before saving
+    if (_step1Key.currentState != null && !_step1Key.currentState!.validate()) {
+      validationPassed = false;
+      // Optionally show a more specific error for Step 1
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(locals.pleaseCorrectErrorsInStepOne),
+            // You'll need to add this string to your app_en.arb
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
-    if (!_step2Key.currentState!.validate()) {
-      setState(() {
-        _currentStep = 1; // Go back to step 2 if validation fails
-      });
-      _pageController.animateToPage(
-        1,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+    // Re-validate Step 2 form (optional fields are now correctly handled by their validators)
+    if (_step2Key.currentState == null || !_step2Key.currentState!.validate()) {
+      validationPassed = false;
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(locals.pleaseCorrectErrorsInStepTwo),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+    if (!validationPassed) {
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => const HomeScreen(),
+          ),
+        );
+      }
       return;
     }
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
+
+    // Safely parse values.
+    // .trim() is added for robustness against leading/trailing spaces.
     final int? ageParsed = int.tryParse(_ageController.text.trim());
     final double? weightParsed = double.tryParse(_weightController.text.trim());
     final double? heightParsed = double.tryParse(_heightController.text.trim());
 
+    // Debugging print statements (remove in production)
+    // print('Age Controller Text: "${_ageController.text.trim()}"');
+    // print('Age Parsed: $ageParsed');
+    // print('Weight Controller Text: "${_weightController.text.trim()}"');
+    // print('Weight Parsed: $weightParsed');
+    // print('Height Controller Text: "${_heightController.text.trim()}"');
+    // print('Height Parsed: $heightParsed');
+
     final user = User(
-      id: widget.userToEdit?.id ?? Uuid().v4(),
+      id: widget.userToEdit?.id ?? const Uuid().v4(),
+      // Use const Uuid().v4()
       name: _nameController.text.trim(),
       age: ageParsed ?? 0,
+      // Fallback to 0 if age parsing fails (though validator should prevent it)
       gender: _selectedGender,
+      // Should always be non-null due to DropdownButtonFormField
       weight: weightParsed,
+      // Correctly null if text is empty or invalid
       height: heightParsed,
+      // Correctly null if text is empty or invalid
       createdAt: widget.userToEdit?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
     );
 
     try {
       if (widget.userToEdit == null) {
-        // If no userToEdit, create a new user
         await userProvider.createUser(user);
       } else {
-        // If userToEdit is provided, update the existing user
         await userProvider.updateUser(user);
       }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(locals.profileCreatedSuccessfully),
-          ),
-        );
-
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => const HomeScreen(),
+            backgroundColor: Colors.green,
           ),
         );
       }
@@ -611,7 +648,16 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error saving profile: $e'),
+            content: Text('Error saving profile: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => const HomeScreen(),
           ),
         );
       }

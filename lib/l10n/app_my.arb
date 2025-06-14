@@ -106,6 +106,8 @@
   "pleaseSelectGender": "ကျေးဇူးပြုပြီး ကျား/မ ရွေးပါ",
   "enterWeight": "ကိုယ်အလေးချိန်ထည့်ပါ (မဖြစ်မနေမလိုပါ)",
   "enterHeight": "ကိုယ်အမြင့်ထည့်ပါ (မဖြစ်မနေမလိုပါ)",
+  "pleaseCorrectErrorsInStepOne": "အခြေခံ အချက်အလက်များတွင် မှားယွင်းမှုများကို ပြင်ဆင်ပါ။",
+  "pleaseCorrectErrorsInStepTwo": "ကျန်းမာရေး အချက်အလက်များတွင် မှားယွင်းမှုများကို ပြင်ဆင်ပါ။",
   "profileCreatedSuccessfully": "ပရိုဖိုင်ကို အောင်မြင်စွာဖန်တီးပါပြီ!",
   "multipleUsersSupported": "အသုံးပြုသူများစွာကို ပံ့ပိုးထားသည်",
   "switchUser": "အသုံးပြုသူပြောင်းရန်",

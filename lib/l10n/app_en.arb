@@ -106,6 +106,8 @@
   "pleaseSelectGender": "Please select your gender",
   "enterWeight": "Enter your weight (optional)",
   "enterHeight": "Enter your height (optional)",
+  "pleaseCorrectErrorsInStepOne": "Please correct errors in Basic Information.",
+  "pleaseCorrectErrorsInStepTwo": "Please correct errors in Health Information.",
   "profileCreatedSuccessfully": "Profile created successfully!",
   "multipleUsersSupported": "Multiple users supported",
   "switchUser": "Switch User",
