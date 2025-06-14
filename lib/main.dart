@@ -13,7 +13,6 @@ import 'providers/medication_provider.dart';
 import 'providers/user_provider.dart';
 import 'screens/splash_screen.dart';
 import 'services/database_service.dart';
-import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,7 +29,9 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  runApp(const DigitalHealthTrackerApp());
+  runApp(
+    const DigitalHealthTrackerApp(),
+  );
 }
 
 class DigitalHealthTrackerApp extends StatelessWidget {

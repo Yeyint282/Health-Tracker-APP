@@ -31,13 +31,22 @@ class BloodPressure {
 
   factory BloodPressure.fromMap(Map<String, dynamic> map) {
     return BloodPressure(
-      id: map['id'] ?? '',
-      userId: map['user_id'] ?? '',
-      systolic: map['systolic']?.toInt() ?? 0,
-      diastolic: map['diastolic']?.toInt() ?? 0,
-      dateTime: DateTime.fromMillisecondsSinceEpoch(map['date_time'] ?? 0),
-      notes: map['notes'],
-      createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] ?? 0),
+      // Ensure 'id' is a String. Use toString() to convert if it's not.
+      id: map['id']?.toString() ?? '',
+      // Ensure 'user_id' is a String.
+      userId: map['user_id']?.toString() ?? '',
+      // Cast to num? then toInt() for safety.
+      systolic: (map['systolic'] as num?)?.toInt() ?? 0,
+      // Cast to num? then toInt() for safety.
+      diastolic: (map['diastolic'] as num?)?.toInt() ?? 0,
+      // Cast to int? then provide default for millisecondsSinceEpoch.
+      dateTime:
+          DateTime.fromMillisecondsSinceEpoch(map['date_time'] as int? ?? 0),
+      // 'notes' is already nullable, so direct cast as String? is sufficient.
+      notes: map['notes'] as String?,
+      // Cast to int? then provide default for millisecondsSinceEpoch.
+      createdAt:
+          DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int? ?? 0),
     );
   }
 

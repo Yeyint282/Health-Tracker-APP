@@ -35,9 +35,10 @@ class Medication {
       'name': name,
       'dosage': dosage,
       'frequency': frequency,
+      // Store reminderTimes as a comma-separated string for simplicity in Map
       'reminder_times': reminderTimes.join(','),
       'instructions': instructions,
-      'is_active': isActive ? 1 : 0,
+      'is_active': isActive ? 1 : 0, // Store bool as int for database
       'start_date': startDate.millisecondsSinceEpoch,
       'end_date': endDate?.millisecondsSinceEpoch,
       'notes': notes,
@@ -47,20 +48,34 @@ class Medication {
 
   factory Medication.fromMap(Map<String, dynamic> map) {
     return Medication(
-      id: map['id'] ?? '',
-      userId: map['user_id'] ?? '',
-      name: map['name'] ?? '',
-      dosage: map['dosage'] ?? '',
-      frequency: map['frequency'] ?? 'onceDaily',
-      reminderTimes: map['reminder_times']?.toString().split(',') ?? [],
-      instructions: map['instructions'],
-      isActive: map['is_active'] == 1,
-      startDate: DateTime.fromMillisecondsSinceEpoch(map['start_date'] ?? 0),
+      // Ensure 'id' is a String.
+      id: map['id']?.toString() ?? '',
+      // Ensure 'user_id' is a String.
+      userId: map['user_id']?.toString() ?? '',
+      // Ensure 'name' is a String.
+      name: map['name']?.toString() ?? '',
+      // Ensure 'dosage' is a String.
+      dosage: map['dosage']?.toString() ?? '',
+      // Explicitly cast to String? then provide default.
+      frequency: map['frequency'] as String? ?? 'onceDaily',
+      // Safely get reminder_times, split if it's a string, otherwise empty list.
+      reminderTimes: (map['reminder_times'] as String?)?.split(',') ?? [],
+      // 'instructions' is nullable String, safe to cast directly.
+      instructions: map['instructions'] as String?,
+      // Convert int (0 or 1) back to bool. Use as int? for safety.
+      isActive: (map['is_active'] as int?) == 1,
+      // Cast to int? for millisecondsSinceEpoch, provide default.
+      startDate:
+          DateTime.fromMillisecondsSinceEpoch(map['start_date'] as int? ?? 0),
+      // Handle nullable endDate: cast to int? before passing.
       endDate: map['end_date'] != null
-          ? DateTime.fromMillisecondsSinceEpoch(map['end_date'])
+          ? DateTime.fromMillisecondsSinceEpoch(map['end_date'] as int)
           : null,
-      notes: map['notes'],
-      createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] ?? 0),
+      // 'notes' is nullable String, safe to cast directly.
+      notes: map['notes'] as String?,
+      // Cast to int? for millisecondsSinceEpoch, provide default.
+      createdAt:
+          DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int? ?? 0),
     );
   }
 

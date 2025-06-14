@@ -31,13 +31,22 @@ class BloodSugar {
 
   factory BloodSugar.fromMap(Map<String, dynamic> map) {
     return BloodSugar(
-      id: map['id'] ?? '',
-      userId: map['user_id'] ?? '',
-      glucose: map['glucose']?.toDouble() ?? 0.0,
-      measurementType: map['measurement_type'] ?? 'random',
-      dateTime: DateTime.fromMillisecondsSinceEpoch(map['date_time'] ?? 0),
-      notes: map['notes'],
-      createdAt: DateTime.fromMillisecondsSinceEpoch(map['created_at'] ?? 0),
+      // Ensure 'id' is a String. Use toString() to convert if it's not.
+      id: map['id']?.toString() ?? '',
+      // Ensure 'user_id' is a String.
+      userId: map['user_id']?.toString() ?? '',
+      // Cast to num? then toDouble() for safety.
+      glucose: (map['glucose'] as num?)?.toDouble() ?? 0.0,
+      // Explicitly cast to String? then provide default.
+      measurementType: map['measurement_type'] as String? ?? 'random',
+      // Cast to int? then provide default for millisecondsSinceEpoch.
+      dateTime:
+          DateTime.fromMillisecondsSinceEpoch(map['date_time'] as int? ?? 0),
+      // 'notes' is already nullable, so direct cast as String? is sufficient.
+      notes: map['notes'] as String?,
+      // Cast to int? then provide default for millisecondsSinceEpoch.
+      createdAt:
+          DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int? ?? 0),
     );
   }
 

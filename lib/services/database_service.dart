@@ -290,7 +290,7 @@ class DatabaseService {
       'activities',
       where: 'user_id = ?',
       whereArgs: [userId],
-      orderBy: 'date DESC',
+      orderBy: 'timestamp DESC',
     );
     return List.generate(maps.length, (i) => Activity.fromMap(maps[i]));
   }
