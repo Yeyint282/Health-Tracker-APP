@@ -290,7 +290,7 @@ class DatabaseService {
       'activities',
       where: 'user_id = ?',
       whereArgs: [userId],
-      orderBy: 'timestamp DESC',
+      orderBy: 'created_at DESC',
     );
     return List.generate(maps.length, (i) => Activity.fromMap(maps[i]));
   }
@@ -518,7 +518,8 @@ class DatabaseService {
     await closeDatabase();
     final databasesPath = await getDatabasesPath();
     final path = join(databasesPath, 'health_tracker.db');
+    // Ensure the database file is deleted
     await deleteDatabase(path);
-    _database = await _initDatabase();
+    _database = await _initDatabase(); // Re-initialize the database
   }
 }

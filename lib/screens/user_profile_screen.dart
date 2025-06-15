@@ -40,7 +40,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       body: Consumer<UserProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: CircularProgressIndicator(),
+            );
           }
 
           if (provider.users.isEmpty) {

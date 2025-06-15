@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
@@ -23,9 +24,13 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  // Variable to track the time of the last back button press
+  DateTime? _lastPressedAt;
+
   @override
   void initState() {
     super.initState();
+    // Ensure provider are initialized after the first frame is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeProviders();
     });
@@ -44,26 +49,56 @@ class _HomeScreenState extends State<HomeScreen> {
           .setUserId(selectedUser.id);
       Provider.of<MedicationProvider>(context, listen: false)
           .setUserId(selectedUser.id);
+      _refreshData();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<UserProvider>(
-      builder: (context, userProvider, child) {
-        if (!userProvider.hasUsers) {
-          return const UserProfileScreen(
-            userToEdit: null,
-            isDialog: false,
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        // If the pop was already handled (e.g., by another nested PopScope), just return.
+        if (didPop) {
+          return;
+        }
+        // Logic for "double back to exit"
+        if (_lastPressedAt == null ||
+            DateTime.now().difference(_lastPressedAt!) >
+                const Duration(seconds: 2)) {
+          // First back press or more than 2 seconds since last press
+          _lastPressedAt = DateTime.now();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(AppLocalizations.of(context)!.pressBackAgainToExit),
+              // Localized message
+              duration: const Duration(seconds: 2),
+            ),
           );
+        } else {
+          // Second back press within 2 seconds, exit the app.
+          SystemNavigator.pop();
         }
-
-        if (userProvider.selectedUser == null) {
-          return _buildUserSelectionScreen();
-        }
-
-        return _buildHomeContent();
       },
+      child: Consumer<UserProvider>(
+        builder: (context, userProvider, child) {
+          // If no users exist, prompt for user profile setup.
+          if (!userProvider.hasUsers) {
+            return const UserProfileScreen(
+              userToEdit: null, // No user to edit, creating a new one
+              isDialog: false, // Not shown as a dialog
+            );
+          }
+
+          // If users exist but none is selected, show user selection screen.
+          if (userProvider.selectedUser == null) {
+            return _buildUserSelectionScreen();
+          }
+
+          // If a user is selected, show the main home content.
+          return _buildHomeContent();
+        },
+      ),
     );
   }
 
@@ -80,7 +115,9 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                MaterialPageRoute(
+                  builder: (_) => const SettingsScreen(),
+                ),
               );
             },
           ),
@@ -92,13 +129,33 @@ class _HomeScreenState extends State<HomeScreen> {
         itemBuilder: (context, index) {
           final user = userProvider.users[index];
           return Card(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            elevation: 2,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: ListTile(
               leading: CircleAvatar(
-                child: Text(user.name.substring(0, 1).toUpperCase()),
+                backgroundColor:
+                    Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                child: Text(
+                  user.name.isNotEmpty
+                      ? user.name.substring(0, 1).toUpperCase()
+                      : '?',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
-              title: Text(user.name),
+              title: Text(
+                user.name,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               subtitle: Text(
-                  '${locals.age}: ${user.age}, ${locals.gender}: ${user.gender}'),
+                '${locals.age}: ${user.age}, ${locals.gender}: ${user.gender}',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               onTap: () {
                 userProvider.selectUser(user);
                 _initializeProviders();
@@ -127,11 +184,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildHomeContent() {
     final locals = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    final userProvider = Provider.of<UserProvider>(context);
+    final user = userProvider.selectedUser;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(locals.homeTitle),
         backgroundColor: theme.colorScheme.surface,
+        automaticallyImplyLeading: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.person),
@@ -139,9 +199,9 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => const UserProfileScreen(
+                  builder: (_) => UserProfileScreen(
                     isDialog: false,
-                    userToEdit: null,
+                    userToEdit: user,
                   ),
                 ),
               );
@@ -152,7 +212,9 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                MaterialPageRoute(
+                  builder: (_) => const SettingsScreen(),
+                ),
               );
             },
           ),
@@ -171,6 +233,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildQuickStats(),
               const SizedBox(height: 24),
               _buildHealthMetrics(),
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -185,17 +248,24 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = userProvider.selectedUser!;
 
     return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Row(
           children: [
             CircleAvatar(
               radius: 30,
-              backgroundColor: theme.colorScheme.primary,
+              backgroundColor: theme.colorScheme.primaryContainer,
               child: Text(
-                user.name.substring(0, 1).toUpperCase(),
+                user.name.isNotEmpty
+                    ? user.name.substring(0, 1).toUpperCase()
+                    : '?',
                 style: theme.textTheme.headlineSmall?.copyWith(
-                  color: Colors.white,
+                  color: theme.colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
@@ -206,23 +276,28 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Text(
                     '${locals.welcome}, ${user.name}!',
-                    style: theme.textTheme.titleLarge,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   Text(
                     '${locals.age}: ${user.age} • ${locals.gender}: ${user.gender}',
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
               ),
             ),
+            // Show swap user icon only if there's more than one user
             if (userProvider.users.length > 1)
               IconButton(
                 icon: const Icon(Icons.swap_horiz),
+                color: theme.colorScheme.secondary,
                 onPressed: () {
                   userProvider.clearSelectedUser();
                 },
+                tooltip: locals.switchUser,
               ),
           ],
         ),
@@ -235,6 +310,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
 
     return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -242,7 +321,9 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Text(
               locals.today,
-              style: theme.textTheme.titleMedium,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 16),
             Consumer4<BloodPressureProvider, BloodSugarProvider,
@@ -250,25 +331,26 @@ class _HomeScreenState extends State<HomeScreen> {
               builder: (context, bpProvider, bsProvider, activityProvider,
                   medicationProvider, child) {
                 return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     Expanded(
                       child: _buildStatItem(
-                        icon: Icons.favorite,
+                        icon: Icons.monitor_heart,
                         label: locals.bloodPressure,
                         value: bpProvider.latestReading != null
                             ? '${bpProvider.latestReading!.systolic}/${bpProvider.latestReading!.diastolic}'
                             : '--',
-                        color: Colors.red,
+                        color: Colors.red.shade600,
                       ),
                     ),
                     Expanded(
                       child: _buildStatItem(
-                        icon: Icons.water_drop,
+                        icon: Icons.bloodtype,
                         label: locals.bloodSugar,
                         value: bsProvider.latestReading != null
                             ? '${bsProvider.latestReading!.glucose.toStringAsFixed(0)}'
                             : '--',
-                        color: Colors.blue,
+                        color: Colors.blue.shade600,
                       ),
                     ),
                     Expanded(
@@ -278,7 +360,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         value: activityProvider.latestActivity != null
                             ? '${activityProvider.latestActivity!.steps}'
                             : '0',
-                        color: Colors.green,
+                        color: Colors.green.shade600,
                       ),
                     ),
                   ],
@@ -301,17 +383,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Column(
       children: [
-        Icon(icon, color: color, size: 32),
+        Icon(icon, color: color, size: 36),
         const SizedBox(height: 8),
         Text(
           value,
-          style: theme.textTheme.titleMedium?.copyWith(
+          style: theme.textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.bold,
+            color: color,
           ),
         ),
         Text(
           label,
-          style: theme.textTheme.bodySmall,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
           textAlign: TextAlign.center,
         ),
       ],
@@ -326,7 +411,9 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Text(
           locals.healthMetrics,
-          style: Theme.of(context).textTheme.titleLarge,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
         ),
         const SizedBox(height: 16),
         GridView.count(
@@ -338,8 +425,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             HealthMetricCard(
               title: locals.bloodPressure,
-              icon: Icons.favorite,
-              color: Colors.red,
+              icon: Icons.monitor_heart,
+              color: Colors.red.shade600,
               onTap: () {
                 Navigator.push(
                   context,
@@ -351,34 +438,40 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             HealthMetricCard(
               title: locals.bloodSugar,
-              icon: Icons.water_drop,
-              color: Colors.blue,
+              icon: Icons.bloodtype,
+              color: Colors.blue.shade600,
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const BloodSugarScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const BloodSugarScreen(),
+                  ),
                 );
               },
             ),
             HealthMetricCard(
               title: locals.dailyActivity,
               icon: Icons.directions_walk,
-              color: Colors.green,
+              color: Colors.green.shade600,
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const ActivityScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const ActivityScreen(),
+                  ),
                 );
               },
             ),
             HealthMetricCard(
               title: locals.medications,
               icon: Icons.medication,
-              color: Colors.orange,
+              color: Colors.orange.shade600,
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const MedicationScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const MedicationScreen(),
+                  ),
                 );
               },
             ),
@@ -388,6 +481,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Refreshes data for all health metric providers.
   Future<void> _refreshData() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final selectedUser = userProvider.selectedUser;

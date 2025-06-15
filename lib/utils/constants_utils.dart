@@ -24,7 +24,7 @@ class AppConstants {
   // Blood Sugar Categories
   static const Map<String, String> bloodSugarCategories = {
     'normal': 'Normal',
-    'prediabetes': 'Prediabetes',
+    'predicates': 'Predicates',
     'diabetes': 'Diabetes',
     'elevated': 'Elevated',
     'high': 'High',

@@ -18,7 +18,7 @@ class Validators {
     }
     final age = int.tryParse(value);
     if (age == null) {
-      return 'Please enter a valid age';
+      return 'Please enter your age';
     }
     if (age < 1 || age > 120) {
       return 'Please enter a valid age (1-120)';
@@ -32,7 +32,7 @@ class Validators {
     }
     final weight = double.tryParse(value);
     if (weight == null) {
-      return 'Please enter a valid weight';
+      return 'Please enter your weight';
     }
     if (weight < 10 || weight > 500) {
       return 'Please enter a valid weight (10-500 kg)';
@@ -46,7 +46,7 @@ class Validators {
     }
     final height = double.tryParse(value);
     if (height == null) {
-      return 'Please enter a valid height';
+      return 'Please enter your height';
     }
     if (height < 50 || height > 250) {
       return 'Please enter a valid height (50-250 cm)';
