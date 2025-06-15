@@ -135,5 +135,6 @@
   "dataStoredLocally": "All data is stored locally on your device",
   "noInternetRequired": "No internet connection required",
   "yourDataIsSecure": "Your health data is completely private and secure",
-  "pressBackAgainToExit": "Press Back Again To Exit"
+  "pressBackAgainToExit": "Press Back Again To Exit",
+  "uploadPhoto": "Upload Photo"
 }

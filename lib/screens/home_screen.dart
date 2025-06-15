@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
@@ -138,15 +140,21 @@ class _HomeScreenState extends State<HomeScreen> {
               leading: CircleAvatar(
                 backgroundColor:
                     Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                child: Text(
-                  user.name.isNotEmpty
-                      ? user.name.substring(0, 1).toUpperCase()
-                      : '?',
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                backgroundImage:
+                    (user.photoPath != null && user.photoPath!.isNotEmpty)
+                        ? FileImage(File(user.photoPath!))
+                        : null,
+                child: (user.photoPath == null || user.photoPath!.isEmpty)
+                    ? Text(
+                        user.name.isNotEmpty
+                            ? user.name.substring(0, 1).toUpperCase()
+                            : '?',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
               ),
               title: Text(
                 user.name,
@@ -259,15 +267,22 @@ class _HomeScreenState extends State<HomeScreen> {
             CircleAvatar(
               radius: 30,
               backgroundColor: theme.colorScheme.primaryContainer,
-              child: Text(
-                user.name.isNotEmpty
-                    ? user.name.substring(0, 1).toUpperCase()
-                    : '?',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  color: theme.colorScheme.onPrimaryContainer,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              // Conditionally display the user's photo or initial
+              backgroundImage:
+                  (user.photoPath != null && user.photoPath!.isNotEmpty)
+                      ? FileImage(File(user.photoPath!))
+                      : null,
+              child: (user.photoPath == null || user.photoPath!.isEmpty)
+                  ? Text(
+                      user.name.isNotEmpty
+                          ? user.name.substring(0, 1).toUpperCase()
+                          : '?',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: theme.colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : null,
             ),
             const SizedBox(width: 16),
             Expanded(

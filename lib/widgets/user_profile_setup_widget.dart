@@ -1,6 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:health_life/screens/home_screen.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -27,7 +32,9 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
   final _ageController = TextEditingController();
   final _weightController = TextEditingController();
   final _heightController = TextEditingController();
-  String _selectedGender = 'male';
+  File? _pickedImageFile; // Holds the actual file selected
+  String? _userPhotoPath; // Holds the path string to save in the database
+  String? _selectedGender;
 
   // Form keys
   final _step1Key = GlobalKey<FormState>();
@@ -43,6 +50,13 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
       _selectedGender = widget.userToEdit!.gender;
       _weightController.text = widget.userToEdit!.weight?.toString() ?? '';
       _heightController.text = widget.userToEdit!.height?.toString() ?? '';
+      _userPhotoPath = widget.userToEdit!.photoPath;
+      if (_userPhotoPath != null && _userPhotoPath!.isNotEmpty) {
+        _pickedImageFile =
+            File(_userPhotoPath!); // Create File object if path exists
+      }
+    } else {
+      _selectedGender = null;
     }
   }
 
@@ -164,6 +178,36 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
                 ),
               ),
               const SizedBox(height: 32),
+              Center(
+                child: GestureDetector(
+                  onTap: _pickImage,
+                  child: CircleAvatar(
+                    radius: 60,
+                    backgroundColor: theme.colorScheme.surfaceVariant,
+                    backgroundImage: _pickedImageFile != null
+                        ? FileImage(_pickedImageFile!)
+                        : null,
+                    child: _pickedImageFile == null
+                        ? Icon(
+                            Icons.camera_alt,
+                            size: 40,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+              const SizedBox(
+                height: 16,
+              ),
+              Center(
+                child: TextButton.icon(
+                  onPressed: _pickImage,
+                  label: Text(locals.uploadPhoto),
+                  icon: Icon(Icons.edit),
+                ),
+              ),
+              const SizedBox(height: 32),
               TextFormField(
                 controller: _nameController,
                 decoration: InputDecoration(
@@ -226,13 +270,13 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
                     child: Text(locals.other),
                   ),
                 ],
-                onChanged: (value) {
+                onChanged: (String? value) {
                   setState(() {
                     _selectedGender = value!;
                   });
                 },
                 validator: (value) {
-                  if (value == null) {
+                  if (value == null || value.isEmpty) {
                     return locals.pleaseSelectGender;
                   }
                   return null;
@@ -244,6 +288,41 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
         ),
       ),
     );
+  }
+
+  // New method for picking and saving image ....
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      //   Get the application's document directory for persistent storage
+      final appDir = await getApplicationDocumentsDirectory();
+      //   Create a specific sub-directory for user photos
+      final photosDir = Directory('${appDir.path}/user_photos');
+      // Ensure the directory exists
+      if (!await photosDir.exists()) {
+        await photosDir.create(recursive: true);
+      }
+      //   Generate a unique file name
+      final String fileName =
+          '${DateTime.now().microsecondsSinceEpoch}_${const Uuid().v4()}${p.extension(image.path)}';
+      final String newPath = p.join(photosDir.path, fileName);
+      try {
+        final File newImageFile = await File(image.path).copySync(newPath);
+        setState(() {
+          _pickedImageFile = newImageFile;
+          _userPhotoPath = newImageFile.path;
+        });
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error saving image : ${e.toString()}'),
+            ),
+          );
+        }
+      }
+    }
   }
 
   Widget _buildStep2() {
@@ -331,7 +410,7 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Weight and height are optional but help provide better health insights.',
+                        'Please enter correct weight and height for better Health Care!',
                         style: theme.textTheme.bodyMedium,
                         textAlign: TextAlign.center,
                       ),
@@ -587,13 +666,13 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
       }
     }
     if (!validationPassed) {
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (_) => const HomeScreen(),
-          ),
-        );
-      }
+      // if (mounted) {
+      //   Navigator.of(context).pushReplacement(
+      //     MaterialPageRoute(
+      //       builder: (_) => const HomeScreen(),
+      //     ),
+      //   );
+      // }
       return;
     }
 
@@ -619,12 +698,14 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
       name: _nameController.text.trim(),
       age: ageParsed ?? 0,
       // Fallback to 0 if age parsing fails (though validator should prevent it)
-      gender: _selectedGender,
+      gender: _selectedGender ?? 'other',
       // Should always be non-null due to DropdownButtonFormField
       weight: weightParsed,
       // Correctly null if text is empty or invalid
       height: heightParsed,
       // Correctly null if text is empty or invalid
+      photoPath: _userPhotoPath,
+      // Pass the saved photo path
       createdAt: widget.userToEdit?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -655,6 +736,7 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
       }
     } finally {
       if (mounted) {
+        // Only navigate home if setup is successful or intended to be completed
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (_) => const HomeScreen(),

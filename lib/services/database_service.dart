@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -30,7 +31,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -46,6 +47,7 @@ class DatabaseService {
         gender TEXT NOT NULL,
         weight REAL,
         height REAL,
+        photo_path TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL
       )
@@ -130,6 +132,11 @@ class DatabaseService {
     // Handle database upgrades here if needed in future versions
     if (oldVersion < newVersion) {
       // Add migration logic here
+      if (oldVersion < 2) {
+        // Add the new column 'photo_path' to the 'users' table
+        await db.execute('ALTER TABLE users ADD COLUMN photo_path TEXT;');
+      }
+      //   Add other migration logic for future versions if oldVersion < 3, etc.
     }
   }
 
@@ -173,9 +180,16 @@ class DatabaseService {
 
   Future<int> deleteUser(String id) async {
     final db = await database;
+    final user = await getUser(id);
+    if (user != null && user.photoPath != null) {
+      final file = File(user.photoPath!);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    }
     return await db.delete(
       'users',
-      where: 'id = ?',
+      where: 'id = ? ',
       whereArgs: [id],
     );
   }
@@ -448,6 +462,13 @@ class DatabaseService {
   // Database maintenance
   Future<void> deleteAllUserData(String userId) async {
     final db = await database;
+    final user = await getUser(userId);
+    if (user != null && user.photoPath != null) {
+      final file = File(user.photoPath!);
+      if (await file.exists()) {
+        await file.delete();
+      }
+    }
     await db.transaction((txn) async {
       await txn
           .delete('blood_pressure', where: 'user_id = ?', whereArgs: [userId]);
@@ -462,6 +483,15 @@ class DatabaseService {
 
   Future<void> clearAllData() async {
     final db = await database;
+    final users = await getUsers();
+    for (final user in users) {
+      if (user.photoPath != null) {
+        final file = File(user.photoPath!);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      }
+    }
     await db.transaction((txn) async {
       await txn.delete('blood_pressure');
       await txn.delete('blood_sugar');

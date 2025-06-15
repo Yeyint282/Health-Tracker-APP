@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
@@ -7,8 +9,10 @@ import '../providers/user_provider.dart';
 import '../widgets/user_profile_setup_widget.dart';
 
 class UserProfileScreen extends StatefulWidget {
-  const UserProfileScreen(
-      {super.key, required userToEdit, required bool isDialog});
+  final User? userToEdit;
+  final bool isDialog;
+
+  const UserProfileScreen({super.key, this.userToEdit, this.isDialog = false});
 
   @override
   State<UserProfileScreen> createState() => _UserProfileScreenState();
@@ -174,14 +178,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         leading: CircleAvatar(
           radius: 30,
           backgroundColor: theme.colorScheme.primary,
-          child: Text(
-            user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          backgroundImage:
+              (user.photoPath != null && user.photoPath!.isNotEmpty)
+                  ? FileImage(File(user.photoPath!))
+                  : null,
+          child: (user.photoPath == null || user.photoPath!.isEmpty)
+              ? Text(
+                  user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                )
+              : null,
         ),
         title: Text(
           user.name,
@@ -283,6 +293,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   void _editUser(User user) {
+    // Option 2 : Navigate to UserProfileSetup in edit mode
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => UserProfileSetup(
+          isDialog: false,
+          userToEdit: user,
+        ),
+      ),
+    );
+    // Kept the original AlertDialog logic commented out for reference,
+    // but the navigation above is more robust for image editing...
     final locals = AppLocalizations.of(context)!;
     final nameController = TextEditingController(text: user.name);
     final ageController = TextEditingController(text: user.age.toString());
@@ -292,8 +313,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final heightController = TextEditingController(
       text: user.height?.toString() ?? '',
     );
-    String selectedGender = user.gender;
-
+    String? selectedGender = user.gender; // Made nullable for the dialog
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -342,8 +362,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   ],
                   onChanged: (value) {
                     setState(() {
-                      selectedGender = value!;
+                      selectedGender = value; // Can be null
                     });
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return locals.pleaseSelectGender;
+                    }
+                    return null;
                   },
                 ),
                 const SizedBox(height: 16),
@@ -379,7 +405,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 user,
                 nameController.text,
                 ageController.text,
-                selectedGender,
+                selectedGender ?? 'other',
                 weightController.text,
                 heightController.text,
               ),

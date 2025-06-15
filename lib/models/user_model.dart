@@ -1,3 +1,5 @@
+
+
 class User {
   final String id;
   final String name;
@@ -5,6 +7,7 @@ class User {
   final String gender;
   final double? weight;
   final double? height;
+  final String? photoPath;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -15,6 +18,7 @@ class User {
     required this.gender,
     this.weight,
     this.height,
+    this.photoPath,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -27,6 +31,7 @@ class User {
       'gender': gender,
       'weight': weight,
       'height': height,
+      'photo_path': photoPath,
       'created_at': createdAt.millisecondsSinceEpoch,
       'updated_at': updatedAt.millisecondsSinceEpoch,
     };
@@ -47,6 +52,8 @@ class User {
       // Cast to num? then toDouble() for safety, allow null.
       height: (map['height'] as num?)?.toDouble(),
       // Cast to int? then provide default for millisecondsSinceEpoch.
+      // Read from map
+      photoPath: map['photo_path']?.toString(),
       createdAt:
           DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int? ?? 0),
       // Cast to int? then provide default for millisecondsSinceEpoch.
@@ -62,6 +69,7 @@ class User {
     String? gender,
     double? weight,
     double? height,
+    String? photoPath,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -72,6 +80,7 @@ class User {
       gender: gender ?? this.gender,
       weight: weight ?? this.weight,
       height: height ?? this.height,
+      photoPath: photoPath ?? this.photoPath,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -79,7 +88,7 @@ class User {
 
   @override
   String toString() {
-    return 'User(id: $id, name: $name, age: $age, gender: $gender, weight: $weight, height: $height)';
+    return 'User(id: $id, name: $name, age: $age, gender: $gender, weight: $weight, height: $height, photoPath : $photoPath)';
   }
 
   @override
