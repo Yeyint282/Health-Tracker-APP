@@ -180,7 +180,7 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
               const SizedBox(height: 32),
               Center(
                 child: GestureDetector(
-                  onTap: _pickImage,
+                  onTap: _showImageSourceSelection,
                   child: CircleAvatar(
                     radius: 60,
                     backgroundColor: theme.colorScheme.surfaceVariant,
@@ -202,7 +202,7 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
               ),
               Center(
                 child: TextButton.icon(
-                  onPressed: _pickImage,
+                  onPressed: _showImageSourceSelection,
                   label: Text(locals.uploadPhoto),
                   icon: Icon(Icons.edit),
                 ),
@@ -291,9 +291,9 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
   }
 
   // New method for picking and saving image ....
-  Future<void> _pickImage() async {
+  Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    final XFile? image = await picker.pickImage(source: source);
     if (image != null) {
       //   Get the application's document directory for persistent storage
       final appDir = await getApplicationDocumentsDirectory();
@@ -308,7 +308,7 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
           '${DateTime.now().microsecondsSinceEpoch}_${const Uuid().v4()}${p.extension(image.path)}';
       final String newPath = p.join(photosDir.path, fileName);
       try {
-        final File newImageFile = await File(image.path).copySync(newPath);
+        final File newImageFile = await File(image.path).copy(newPath);
         setState(() {
           _pickedImageFile = newImageFile;
           _userPhotoPath = newImageFile.path;
@@ -323,6 +323,49 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
         }
       }
     }
+  }
+
+  Future<void> _showImageSourceSelection() async {
+    final locals = AppLocalizations.of(context);
+    await showModalBottomSheet(
+        context: context,
+        builder: (BuildContext context) {
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                ListTile(
+                  leading: const Icon(Icons.photo_library),
+                  title: Text(locals!.photoLibrary),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImage(ImageSource.gallery);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo_camera),
+                  title: Text(locals.camera),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickImage(ImageSource.camera);
+                  },
+                ),
+                // if(_pickedImageFile != null)
+                //   ListTile(
+                //     leading: const Icon(Icons.delete,color: Colors.red,),
+                //     title: Text(locals.removePhoto,style: const TextStyle(color: Colors.red),),
+                //     onTap: (){
+                //       setState(() {
+                //         _pickedImageFile = null;
+                //         _userPhotoPath = null;
+                //       });
+                //       Navigator.pop(context);
+                //     },
+                //   ),
+              ],
+            ),
+          );
+        });
   }
 
   Widget _buildStep2() {

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../models/user_model.dart';
@@ -10,6 +11,7 @@ import '../widgets/user_profile_setup_widget.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final User? userToEdit;
+
   final bool isDialog;
 
   const UserProfileScreen({super.key, this.userToEdit, this.isDialog = false});
@@ -19,9 +21,12 @@ class UserProfileScreen extends StatefulWidget {
 }
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
+  File? _imageFile;
+
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<UserProvider>(context, listen: false).loadUsers();
     });
@@ -62,7 +67,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   itemCount: provider.users.length,
                   itemBuilder: (context, index) {
                     final user = provider.users[index];
+
                     final isSelected = provider.selectedUser?.id == user.id;
+
                     return _buildUserCard(user, isSelected, provider);
                   },
                 ),
@@ -80,6 +87,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Widget _buildEmptyState() {
     final locals = AppLocalizations.of(context)!;
+
     final theme = Theme.of(context);
 
     return Center(
@@ -125,6 +133,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Widget _buildWelcomeCard(UserProvider provider) {
     final locals = AppLocalizations.of(context)!;
+
     final theme = Theme.of(context);
 
     return Card(
@@ -165,8 +174,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  Widget _buildUserCard(User user, bool isSelected, UserProvider provider) {
+  Widget _buildUserCard(
+    User user,
+    bool isSelected,
+    UserProvider provider,
+  ) {
     final locals = AppLocalizations.of(context)!;
+
     final theme = Theme.of(context);
 
     return Card(
@@ -237,12 +251,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   switch (value) {
                     case 'select':
                       _selectUser(user, provider);
+
                       break;
+
                     case 'edit':
                       _editUser(user);
+
                       break;
+
                     case 'delete':
                       _deleteUser(user.id, provider);
+
                       break;
                   }
                 },
@@ -287,33 +306,51 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   void _selectUser(User user, UserProvider provider) {
     provider.selectUser(user);
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Selected ${user.name}')),
     );
   }
 
+  Future<void> _pickImage(ImageSource source, StateSetter setState) async {
+    final picker = ImagePicker();
+
+    final pickedFile = await picker.pickImage(source: source);
+
+    if (pickedFile != null) {
+      setState(() {
+        _imageFile = File(pickedFile.path);
+      });
+    }
+  }
+
   void _editUser(User user) {
-    // Option 2 : Navigate to UserProfileSetup in edit mode
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => UserProfileSetup(
-          isDialog: false,
-          userToEdit: user,
-        ),
-      ),
-    );
-    // Kept the original AlertDialog logic commented out for reference,
-    // but the navigation above is more robust for image editing...
+// Kept the original AlertDialog logic commented out for reference,
+
+// but the navigation above is more robust for image editing...
+
     final locals = AppLocalizations.of(context)!;
+
     final nameController = TextEditingController(text: user.name);
+
     final ageController = TextEditingController(text: user.age.toString());
+
     final weightController = TextEditingController(
       text: user.weight?.toString() ?? '',
     );
+
     final heightController = TextEditingController(
       text: user.height?.toString() ?? '',
     );
+
     String? selectedGender = user.gender; // Made nullable for the dialog
+
+// Initialize _imageFile with the user's current photo path if it exists
+
+    _imageFile = (user.photoPath != null && user.photoPath!.isNotEmpty)
+        ? File(user.photoPath!)
+        : null;
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -323,6 +360,77 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+// Image picking section
+
+                GestureDetector(
+                  onTap: () async {
+                    await showModalBottomSheet(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return SafeArea(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              ListTile(
+                                leading: const Icon(Icons.photo_library),
+                                title: Text(locals.photoLibrary),
+                                onTap: () {
+                                  Navigator.pop(context);
+
+                                  _pickImage(ImageSource.gallery, setState);
+                                },
+                              ),
+                              ListTile(
+                                leading: const Icon(Icons.photo_camera),
+                                title: Text(locals.camera),
+                                onTap: () {
+                                  Navigator.pop(context);
+
+                                  _pickImage(ImageSource.camera, setState);
+                                },
+                              ),
+                              if (_imageFile != null)
+                                ListTile(
+                                  leading: const Icon(
+                                    Icons.delete,
+                                    color: Colors.red,
+                                  ),
+                                  title: Text(
+                                    locals.removePhoto,
+                                    style: const TextStyle(color: Colors.red),
+                                  ),
+                                  onTap: () {
+                                    setState(() {
+                                      _imageFile =
+                                          null; // Set to null to remove the image
+                                    });
+
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                  child: CircleAvatar(
+                    radius: 60,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    backgroundImage:
+                        _imageFile != null ? FileImage(_imageFile!) : null,
+                    child: _imageFile == null
+                        ? Icon(
+                            Icons.camera_alt,
+                            size: 40,
+                            color: Theme.of(context).colorScheme.onPrimary,
+                          )
+                        : null,
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
                 TextField(
                   controller: nameController,
                   decoration: InputDecoration(
@@ -330,16 +438,20 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     prefixIcon: const Icon(Icons.person),
                   ),
                 ),
+
                 const SizedBox(height: 16),
+
                 TextField(
                   controller: ageController,
                   decoration: InputDecoration(
                     labelText: locals.age,
-                    prefixIcon: const Icon(Icons.cake),
+                    prefixIcon: const Icon(Icons.cake_outlined),
                   ),
                   keyboardType: TextInputType.number,
                 ),
+
                 const SizedBox(height: 16),
+
                 DropdownButtonFormField<String>(
                   value: selectedGender,
                   decoration: InputDecoration(
@@ -369,10 +481,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     if (value == null || value.isEmpty) {
                       return locals.pleaseSelectGender;
                     }
+
                     return null;
                   },
                 ),
+
                 const SizedBox(height: 16),
+
                 TextField(
                   controller: weightController,
                   decoration: InputDecoration(
@@ -382,7 +497,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   ),
                   keyboardType: TextInputType.number,
                 ),
+
                 const SizedBox(height: 16),
+
                 TextField(
                   controller: heightController,
                   decoration: InputDecoration(
@@ -408,6 +525,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 selectedGender ?? 'other',
                 weightController.text,
                 heightController.text,
+                _imageFile,
               ),
               child: Text(locals.save),
             ),
@@ -424,24 +542,43 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     String gender,
     String weightText,
     String heightText,
+    File? newImageFile,
   ) async {
     if (name.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Name is required')),
       );
+
       return;
     }
 
     final age = int.tryParse(ageText);
+
     if (age == null || age < 1 || age > 120) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a valid age')),
       );
+
       return;
     }
 
     final weight = weightText.isEmpty ? null : double.tryParse(weightText);
+
     final height = heightText.isEmpty ? null : double.tryParse(heightText);
+
+// Determine the photo path
+
+    String? photoPathToSave;
+
+    if (newImageFile != null) {
+// If a new image picked use its path
+
+      photoPathToSave = newImageFile.path;
+    } else if (user.photoPath != null && user.photoPath!.isNotEmpty) {
+// If no new image picked, but there was an existing one, keep it
+
+      photoPathToSave = user.photoPath;
+    }
 
     final updatedUser = user.copyWith(
       name: name.trim(),
@@ -449,15 +586,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       gender: gender,
       weight: weight,
       height: height,
+      photoPath: newImageFile?.path,
       updatedAt: DateTime.now(),
     );
 
     try {
       final provider = Provider.of<UserProvider>(context, listen: false);
+
       await provider.updateUser(updatedUser);
 
       if (mounted) {
         Navigator.pop(context);
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated successfully')),
         );
@@ -512,24 +652,31 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   void _navigateToUserSetup() {
-    Navigator.of(context).push(
+    Navigator.of(context)
+        .push(
       MaterialPageRoute(
         builder: (context) => const UserProfileSetup(
           isDialog: false,
           userToEdit: null,
         ),
       ),
-    );
+    )
+        .then((_) {
+      Provider.of<UserProvider>(context, listen: false).loadUsers();
+    });
   }
 
   String _getGenderText(String gender, AppLocalizations locals) {
     switch (gender) {
       case 'male':
         return locals.male;
+
       case 'female':
         return locals.female;
+
       case 'other':
         return locals.other;
+
       default:
         return gender;
     }

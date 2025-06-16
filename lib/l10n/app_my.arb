@@ -136,5 +136,9 @@
   "noInternetRequired": "အင်တာနက်ချိတ်ဆက်မှု မလိုအပ်ပါ",
   "yourDataIsSecure": "သင်၏ ကျန်းမာရေး အချက်အလက်များသည် လုံးဝကိုယ်ပိုင်ဖြစ်ပြီး လုံခြုံသည်",
   "pressBackAgainToExit": "ထွက်ရန် နောက်တစ်ကြိမ် ထပ်နှိပ်ပါ",
-  "uploadPhoto": "ဓာတ်ပုံကို တင်ပါ"
+  "uploadPhoto": "ဓာတ်ပုံကို တင်ပါ",
+  "removePhoto": "ဓာတ်ပုံကိုဖယ်ရှားပါ",
+  "camera": "ကင်မရာ",
+  "photoLibrary": "Photo Library",
+  "guest": "ဧည့်သည်"
 }

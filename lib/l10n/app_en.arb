@@ -136,5 +136,9 @@
   "noInternetRequired": "No internet connection required",
   "yourDataIsSecure": "Your health data is completely private and secure",
   "pressBackAgainToExit": "Press Back Again To Exit",
-  "uploadPhoto": "Upload Photo"
+  "uploadPhoto": "Upload Photo",
+  "removePhoto": "Remove Photo",
+  "camera": "Camera",
+  "photoLibrary": "Photo Library",
+  "guest": "Guest"
 }
