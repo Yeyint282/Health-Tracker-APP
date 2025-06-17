@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
+import 'package:health_life/screens/user_profile_screen.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/activity_provider.dart';
@@ -16,7 +17,6 @@ import 'blood_pressure_screen.dart';
 import 'blood_sugar_screen.dart';
 import 'medication_screen.dart';
 import 'settings_screen.dart';
-import 'user_profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,13 +26,16 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  // Variable to track the time of the last back button press
+// Variable to track the time of the last back button press
+
   DateTime? _lastPressedAt;
 
   @override
   void initState() {
     super.initState();
-    // Ensure provider are initialized after the first frame is built
+
+// Ensure provider are initialized after the first frame is built
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeProviders();
     });
@@ -40,17 +43,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _initializeProviders() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
+
     final selectedUser = userProvider.selectedUser;
 
     if (selectedUser != null) {
       Provider.of<BloodPressureProvider>(context, listen: false)
           .setUserId(selectedUser.id);
+
       Provider.of<BloodSugarProvider>(context, listen: false)
           .setUserId(selectedUser.id);
+
       Provider.of<ActivityProvider>(context, listen: false)
           .setUserId(selectedUser.id);
+
       Provider.of<MedicationProvider>(context, listen: false)
           .setUserId(selectedUser.id);
+
       _refreshData();
     }
   }
@@ -60,44 +68,56 @@ class _HomeScreenState extends State<HomeScreen> {
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
-        // If the pop was already handled (e.g., by another nested PopScope), just return.
+// If the pop was already handled (e.g., by another nested PopScope), just return.
+
         if (didPop) {
           return;
         }
-        // Logic for "double back to exit"
+
+// Logic for "double back to exit"
+
         if (_lastPressedAt == null ||
             DateTime.now().difference(_lastPressedAt!) >
                 const Duration(seconds: 2)) {
-          // First back press or more than 2 seconds since last press
+// First back press or more than 2 seconds since last press
+
           _lastPressedAt = DateTime.now();
+
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(AppLocalizations.of(context)!.pressBackAgainToExit),
-              // Localized message
+
+// Localized message
+
               duration: const Duration(seconds: 2),
             ),
           );
         } else {
-          // Second back press within 2 seconds, exit the app.
+// Second back press within 2 seconds, exit the app.
+
           SystemNavigator.pop();
         }
       },
       child: Consumer<UserProvider>(
         builder: (context, userProvider, child) {
-          // If no users exist, prompt for user profile setup.
+// If no users exist, prompt for user profile setup.
+
           if (!userProvider.hasUsers) {
             return const UserProfileScreen(
               userToEdit: null, // No user to edit, creating a new one
+
               isDialog: false, // Not shown as a dialog
             );
           }
 
-          // If users exist but none is selected, show user selection screen.
+// If users exist but none is selected, show user selection screen.
+
           if (userProvider.selectedUser == null) {
             return _buildUserSelectionScreen();
           }
 
-          // If a user is selected, show the main home content.
+// If a user is selected, show the main home content.
+
           return _buildHomeContent();
         },
       ),
@@ -106,6 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildUserSelectionScreen() {
     final locals = AppLocalizations.of(context)!;
+
     final userProvider = Provider.of<UserProvider>(context);
 
     return Scaffold(
@@ -130,6 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
         itemCount: userProvider.users.length,
         itemBuilder: (context, index) {
           final user = userProvider.users[index];
+
           return Card(
             margin: const EdgeInsets.symmetric(vertical: 8),
             elevation: 2,
@@ -166,6 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               onTap: () {
                 userProvider.selectUser(user);
+
                 _initializeProviders();
               },
             ),
@@ -191,8 +214,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHomeContent() {
     final locals = AppLocalizations.of(context)!;
+
     final theme = Theme.of(context);
+
     final userProvider = Provider.of<UserProvider>(context);
+
     final user = userProvider.selectedUser;
 
     return Scaffold(
@@ -251,8 +277,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildUserGreeting() {
     final locals = AppLocalizations.of(context)!;
+
     final theme = Theme.of(context);
+
     final userProvider = Provider.of<UserProvider>(context);
+
     final user = userProvider.selectedUser!;
 
     return Card(
@@ -266,12 +295,16 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             CircleAvatar(
               radius: 30,
+
               backgroundColor: theme.colorScheme.primaryContainer,
-              // Conditionally display the user's photo or initial
+
+// Conditionally display the user's photo or initial
+
               backgroundImage:
                   (user.photoPath != null && user.photoPath!.isNotEmpty)
                       ? FileImage(File(user.photoPath!))
                       : null,
+
               child: (user.photoPath == null || user.photoPath!.isEmpty)
                   ? Text(
                       user.name.isNotEmpty
@@ -284,7 +317,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     )
                   : null,
             ),
+
             const SizedBox(width: 16),
+
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -304,7 +339,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-            // Show swap user icon only if there's more than one user
+
+// Show swap user icon only if there's more than one user
+
             if (userProvider.users.length > 1)
               IconButton(
                 icon: const Icon(Icons.swap_horiz),
@@ -322,6 +359,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildQuickStats() {
     final locals = AppLocalizations.of(context)!;
+
     final theme = Theme.of(context);
 
     return Card(
@@ -496,9 +534,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Refreshes data for all health metric providers.
+// Refreshes data for all health metric providers.
+
   Future<void> _refreshData() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
+
     final selectedUser = userProvider.selectedUser;
 
     if (selectedUser != null) {

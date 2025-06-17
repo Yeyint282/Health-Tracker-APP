@@ -140,5 +140,8 @@
   "removePhoto": "Remove Photo",
   "camera": "Camera",
   "photoLibrary": "Photo Library",
-  "guest": "Guest"
+  "guest": "Guest",
+  "manageProfiles": "Manage Profiles",
+  "noUsersFound": "No User Found",
+  "noUsersToSelect": "No Users To Select"
 }

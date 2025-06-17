@@ -140,5 +140,8 @@
   "removePhoto": "ဓာတ်ပုံကိုဖယ်ရှားပါ",
   "camera": "ကင်မရာ",
   "photoLibrary": "Photo Library",
-  "guest": "ဧည့်သည်"
+  "guest": "ဧည့်သည်",
+  "manageProfiles": "ပရိုဖိုင်များကို စီမံပါ။",
+  "noUsersFound": "အသုံးပြုသူ မတွေ့ပါ",
+  "noUsersToSelect": "ရွေးချယ်ရန် အသုံးပြုသူများ မရှိပါ"
 }
