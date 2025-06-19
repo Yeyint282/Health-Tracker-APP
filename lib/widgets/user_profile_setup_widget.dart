@@ -399,16 +399,15 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
                 ),
                 keyboardType: TextInputType.number,
                 validator: (value) {
-                  // Weight is optional, so only validate if value is NOT empty
-                  if (value != null && value.trim().isNotEmpty) {
-                    final weight =
-                        double.tryParse(value); // Use double.tryParse
-                    if (weight == null || weight < 1 || weight > 500) {
-                      // More realistic weight range
-                      return 'Please enter a valid weight (1-500 kg)';
-                    }
+                  // Weight is now mandatory
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter your weight';
                   }
-                  return null; // Return null if empty (optional) or valid
+                  final weight = double.tryParse(value);
+                  if (weight == null || weight < 1 || weight > 500) {
+                    return 'Please enter a valid weight (1-500 kg)';
+                  }
+                  return null;
                 },
               ),
               const SizedBox(height: 20),
@@ -424,16 +423,15 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
                 ),
                 keyboardType: TextInputType.number,
                 validator: (value) {
-                  // Height is optional, so only validate if value is NOT empty
-                  if (value != null && value.trim().isNotEmpty) {
-                    final height =
-                        double.tryParse(value); // Use double.tryParse
-                    if (height == null || height < 50 || height > 250) {
-                      // More realistic height range
-                      return 'Please enter a valid height (50-250 cm)';
-                    }
+                  // Height is now mandatory
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter your height';
                   }
-                  return null; // Return null if empty (optional) or valid
+                  final height = double.tryParse(value);
+                  if (height == null || height < 50 || height > 250) {
+                    return 'Please enter a valid height (50-250 cm)';
+                  }
+                  return null;
                 },
               ),
               const SizedBox(height: 20),

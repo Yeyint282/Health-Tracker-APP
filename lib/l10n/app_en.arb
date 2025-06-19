@@ -1,7 +1,7 @@
 {
   "@@locale": "en",
-  "appTitle": "Digital Health Tracker",
-  "welcome": "Welcome to Digital Health Tracker",
+  "appTitle": "Health Tracker",
+  "welcome": "Welcome to Health Tracker App",
   "getStarted": "Get Started",
   "homeTitle": "Health Dashboard",
   "settingsTitle": "Settings",
@@ -103,9 +103,11 @@
   "finish": "Finish",
   "pleaseEnterName": "Please enter your name",
   "pleaseEnterAge": "Please enter your age",
+  "pleaseEnterWeight": "Please enter your weight",
+  "pleaseEnterHeight": "Please enter your height",
   "pleaseSelectGender": "Please select your gender",
-  "enterWeight": "Enter your weight (optional)",
-  "enterHeight": "Enter your height (optional)",
+  "enterWeight": "Enter your weight",
+  "enterHeight": "Enter your height",
   "pleaseCorrectErrorsInStepOne": "Please correct errors in Basic Information.",
   "pleaseCorrectErrorsInStepTwo": "Please correct errors in Health Information.",
   "profileCreatedSuccessfully": "Profile created successfully!",
@@ -143,5 +145,6 @@
   "guest": "Guest",
   "manageProfiles": "Manage Profiles",
   "noUsersFound": "No User Found",
-  "noUsersToSelect": "No Users To Select"
+  "noUsersToSelect": "No Users To Select",
+  "selected": "Selected"
 }

@@ -44,8 +44,8 @@ class DatabaseService {
         name TEXT NOT NULL,
         age INTEGER NOT NULL,
         gender TEXT NOT NULL,
-        weight REAL,
-        height REAL,
+        weight REAL NOT NULL,
+        height REAL NOT NULL,
         photo_path TEXT,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL

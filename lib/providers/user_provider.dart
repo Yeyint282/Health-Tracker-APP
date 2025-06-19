@@ -9,11 +9,14 @@ class UserProvider with ChangeNotifier {
   final DatabaseService _databaseService = DatabaseService.instance;
   List<User> _users = [];
   User? _selectedUser;
+  String? _lastSelectedUserId;
   bool _isLoading = false;
 
   List<User> get users => _users;
 
   User? get selectedUser => _selectedUser;
+
+  String? get lastSelectedUserId => _lastSelectedUserId;
 
   bool get isLoading => _isLoading;
 
@@ -30,16 +33,16 @@ class UserProvider with ChangeNotifier {
       _users = await _databaseService.getUsers();
       if (_selectedUser == null && _users.isNotEmpty) {
         _selectedUser = _users.first;
+        _lastSelectedUserId = _users.first.id;
       }
       // After loading, if the selected user was deleted, or no users exist, clear selection
       if (_selectedUser != null &&
           !_users.any((user) => user.id == _selectedUser!.id)) {
-        _selectedUser = null;
-      } else if (_selectedUser == null && _users.isNotEmpty) {
-        _selectedUser = _users
-            .first; // Select the first user if none is selected and users exist
+        _selectedUser = _users.isNotEmpty ? _users.first : null;
+        _lastSelectedUserId = _selectedUser?.id;
       } else if (_users.isEmpty) {
-        _selectedUser = null; // Clear selection if no users exist
+        _selectedUser = null;
+        _lastSelectedUserId = null;
       }
     } catch (e) {
       debugPrint('Error loading users: $e');
@@ -53,7 +56,8 @@ class UserProvider with ChangeNotifier {
     try {
       await _databaseService.insertUser(user);
       await loadUsers(); // Load users to get the latest list
-      _selectedUser = user; // Set the newly created user as selected
+      _selectedUser = _users.firstWhere((u) => u.name == user.name);
+      _lastSelectedUserId = _selectedUser?.id;
       notifyListeners();
     } catch (e) {
       debugPrint('Error creating user: $e');
@@ -76,7 +80,7 @@ class UserProvider with ChangeNotifier {
 
       if (photoWasPresent && (newPhotoIsDifferent || newPhotoIsNull)) {
         try {
-          final oldFile = File(oldPhotoPath!);
+          final oldFile = File(oldPhotoPath);
           if (await oldFile.exists()) {
             await oldFile.delete();
             debugPrint('Successfully deleted old photo: $oldPhotoPath');
@@ -87,7 +91,8 @@ class UserProvider with ChangeNotifier {
       }
 
       await loadUsers(); // Refresh the user list from the database
-      _selectedUser = getUserById(updatedUser.id); // Re-select the updated user
+      _selectedUser = getUserById(updatedUser.id);
+      _lastSelectedUserId = _selectedUser?.id;
       notifyListeners();
     } catch (e) {
       debugPrint('Error updating user: $e');
@@ -98,9 +103,7 @@ class UserProvider with ChangeNotifier {
   Future<void> deleteUser(String userId) async {
     try {
       final User? userToDelete = getUserById(userId);
-
       await _databaseService.deleteUser(userId);
-
       if (userToDelete != null &&
           userToDelete.photoPath != null &&
           userToDelete.photoPath!.isNotEmpty) {
@@ -119,6 +122,7 @@ class UserProvider with ChangeNotifier {
       if (_selectedUser?.id == userId) {
         _selectedUser = _users.isNotEmpty ? _users.first : null;
       }
+      _lastSelectedUserId = _selectedUser?.id;
       notifyListeners();
     } catch (e) {
       debugPrint('Error deleting user: $e');
@@ -131,6 +135,7 @@ class UserProvider with ChangeNotifier {
     if (_selectedUser?.id != user?.id) {
       // Also adjust the comparison for nullability
       _selectedUser = user;
+      _lastSelectedUserId = user?.id;
       notifyListeners();
     }
   }

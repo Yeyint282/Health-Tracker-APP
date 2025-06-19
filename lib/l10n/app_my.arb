@@ -1,9 +1,9 @@
 {
   "@@locale": "my",
-  "appTitle": "ဒစ်ဂျစ်တယ် ကျန်းမာရေး မှတ်တမ်း",
-  "welcome": "ဒစ်ဂျစ်တယ် ကျန်းမာရေး မှတ်တမ်းမှ ကြိုဆိုပါသည်",
+  "appTitle": "ကျန်းမာရေး မှတ်တမ်း",
+  "welcome": "ကျန်းမာရေး မှတ်တမ်း application မှ ကြိုဆိုပါသည်",
   "getStarted": "စတင်အသုံးပြုမည်",
-  "homeTitle": "ကျန်းမာရေး ဒိုင်ခွက်",
+  "homeTitle": "ကျန်းမာရေး dashboard",
   "settingsTitle": "ချိန်ညှိချက်များ",
   "profileTitle": "အသုံးပြုသူ ပရိုဖိုင်",
   "createProfile": "ပရိုဖိုင် ပြုလုပ်ရန်",
@@ -103,9 +103,11 @@
   "finish": "ပြီးမြောက်ပြီ",
   "pleaseEnterName": "သင်၏အမည်ကို ထည့်ပါ",
   "pleaseEnterAge": "သင်၏အသက်ကို ထည့်ပါ",
-  "pleaseSelectGender": "သင်၏ ကျား/မ ကို ရွေးချယ်ပါ",
-  "enterWeight": "သင်၏ ကိုယ်အလေးချိန်ကို ထည့်ပါ (ထည့်ချင်မှထည့်ပါ)",
-  "enterHeight": "သင်၏ အရပ်အမြင့်ကို ထည့်ပါ (ထည့်ချင်မှထည့်ပါ)",
+  "pleaseSelectGender": "ကျေးဇူးပြု၍ ကျား/မ ရွေးပါ",
+  "pleaseEnterWeight": "သင့်ခန္ဓာကိုယ်အလေးချိန်ကို ထည့်ပါ။",
+  "pleaseEnterHeight": "ကျေးဇူးပြု၍ သင့်၏ အရပ်အမြင့်ကိုထည့်ပါ",
+  "enterWeight": "သင်၏ ကိုယ်အလေးချိန်ကို ထည့်ပါ",
+  "enterHeight": "သင်၏ အရပ်အမြင့်ကို ထည့်ပါ",
   "pleaseCorrectErrorsInStepOne": "အခြေခံ အချက်အလက်ရှိ အမှားများကို ပြင်ဆင်ပါ",
   "pleaseCorrectErrorsInStepTwo": "ကျန်းမာရေး အချက်အလက်ရှိ အမှားများကို ပြင်ဆင်ပါ",
   "profileCreatedSuccessfully": "ပရိုဖိုင်ကို အောင်မြင်စွာ ဖန်တီးပြီးပါပြီ!",
@@ -143,5 +145,6 @@
   "guest": "ဧည့်သည်",
   "manageProfiles": "ပရိုဖိုင်များကို စီမံပါ။",
   "noUsersFound": "အသုံးပြုသူ မတွေ့ပါ",
-  "noUsersToSelect": "ရွေးချယ်ရန် အသုံးပြုသူများ မရှိပါ"
+  "noUsersToSelect": "ရွေးချယ်ရန် အသုံးပြုသူများ မရှိပါ",
+  "selected": "Selected"
 }

@@ -43,22 +43,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _initializeProviders() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-
     final selectedUser = userProvider.selectedUser;
-
     if (selectedUser != null) {
       Provider.of<BloodPressureProvider>(context, listen: false)
           .setUserId(selectedUser.id);
-
       Provider.of<BloodSugarProvider>(context, listen: false)
           .setUserId(selectedUser.id);
-
       Provider.of<ActivityProvider>(context, listen: false)
           .setUserId(selectedUser.id);
-
       Provider.of<MedicationProvider>(context, listen: false)
           .setUserId(selectedUser.id);
-
       _refreshData();
     }
   }
@@ -69,55 +63,36 @@ class _HomeScreenState extends State<HomeScreen> {
       canPop: false,
       onPopInvoked: (didPop) async {
 // If the pop was already handled (e.g., by another nested PopScope), just return.
-
         if (didPop) {
           return;
         }
 
 // Logic for "double back to exit"
-
         if (_lastPressedAt == null ||
             DateTime.now().difference(_lastPressedAt!) >
                 const Duration(seconds: 2)) {
-// First back press or more than 2 seconds since last press
-
           _lastPressedAt = DateTime.now();
-
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(AppLocalizations.of(context)!.pressBackAgainToExit),
-
-// Localized message
-
               duration: const Duration(seconds: 2),
             ),
           );
         } else {
-// Second back press within 2 seconds, exit the app.
-
           SystemNavigator.pop();
         }
       },
       child: Consumer<UserProvider>(
         builder: (context, userProvider, child) {
-// If no users exist, prompt for user profile setup.
-
           if (!userProvider.hasUsers) {
             return const UserProfileScreen(
-              userToEdit: null, // No user to edit, creating a new one
-
-              isDialog: false, // Not shown as a dialog
+              userToEdit: null,
+              isDialog: false,
             );
           }
-
-// If users exist but none is selected, show user selection screen.
-
           if (userProvider.selectedUser == null) {
             return _buildUserSelectionScreen();
           }
-
-// If a user is selected, show the main home content.
-
           return _buildHomeContent();
         },
       ),
@@ -126,9 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildUserSelectionScreen() {
     final locals = AppLocalizations.of(context)!;
-
     final userProvider = Provider.of<UserProvider>(context);
-
     return Scaffold(
       appBar: AppBar(
         title: Text(locals.selectUser),
@@ -151,14 +124,21 @@ class _HomeScreenState extends State<HomeScreen> {
         itemCount: userProvider.users.length,
         itemBuilder: (context, index) {
           final user = userProvider.users[index];
-
+          final bool isSelected = user.id == userProvider.selectedUser?.id;
           return Card(
             margin: const EdgeInsets.symmetric(vertical: 8),
             elevation: 2,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
+              side: isSelected
+                  ? BorderSide(
+                      color: Theme.of(context).colorScheme.primary, width: 2)
+                  : BorderSide.none,
             ),
             child: ListTile(
+              selected: isSelected,
+              selectedTileColor:
+                  Theme.of(context).colorScheme.primary.withOpacity(0.08),
               leading: CircleAvatar(
                 backgroundColor:
                     Theme.of(context).colorScheme.primary.withOpacity(0.1),
@@ -186,28 +166,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 '${locals.age}: ${user.age}, ${locals.gender}: ${user.gender}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
+              trailing: isSelected
+                  ? Chip(
+                      label: Text('Selected'),
+                      backgroundColor:
+                          Theme.of(context).colorScheme.primaryContainer,
+                      labelStyle: TextStyle(
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      padding: EdgeInsets.zero,
+                    )
+                  : null,
               onTap: () {
                 userProvider.selectUser(user);
-
                 _initializeProviders();
               },
             ),
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const UserProfileScreen(
-                userToEdit: null,
-                isDialog: false,
-              ),
-            ),
-          );
-        },
-        child: const Icon(Icons.add),
       ),
     );
   }
