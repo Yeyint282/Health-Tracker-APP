@@ -146,5 +146,7 @@
   "manageProfiles": "Manage Profiles",
   "noUsersFound": "No User Found",
   "noUsersToSelect": "No Users To Select",
-  "selected": "Selected"
+  "selected": "Selected",
+  "prediabetes": "Prediabetes",
+  "diabetes": "Diabetes"
 }

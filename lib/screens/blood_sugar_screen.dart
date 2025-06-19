@@ -3,13 +3,14 @@ import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
-import '../models/blood_sugar_model.dart';
+import '../models/blood_sugar_model.dart'; // Ensure this model has a 'category' field
 import '../providers/blood_sugar_provider.dart';
-import '../providers/user_provider.dart';
+import '../providers/user_provider.dart'; // This provider must contain the User model with 'hasDiabetes'
 import '../utils/date_formatter.dart';
 import '../widgets/chart_widget.dart';
 import '../widgets/empty_state_widget.dart';
 import '../widgets/reading_list_item_widget.dart';
+// Make sure this is 'reading_list_item_widget.dart'
 
 class BloodSugarScreen extends StatefulWidget {
   const BloodSugarScreen({super.key});
@@ -336,8 +337,21 @@ class _BloodSugarScreenState extends State<BloodSugarScreen> {
 
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final userId = userProvider.selectedUser?.id;
+    final userAge = userProvider.selectedUser?.age;
+    final userHasDiabetes =
+        userProvider.selectedUser?.hasDiabetes; // Get user's diabetes status
 
-    if (userId == null) return;
+    if (userId == null || userAge == null) {
+      // Handle case where user or age is not available
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User information not available')),
+      );
+      return;
+    }
+
+    // Determine the category based on glucose, measurement type, user's age, and diabetes status
+    final category = _getCategoryFromGlucose(
+        glucose, measurementType, userAge, userHasDiabetes);
 
     final provider = Provider.of<BloodSugarProvider>(context, listen: false);
 
@@ -348,6 +362,7 @@ class _BloodSugarScreenState extends State<BloodSugarScreen> {
           measurementType: measurementType,
           dateTime: dateTime,
           notes: notes.isEmpty ? null : notes,
+          category: category, // Update category
         );
         await provider.updateReading(updatedReading);
       } else {
@@ -359,6 +374,7 @@ class _BloodSugarScreenState extends State<BloodSugarScreen> {
           dateTime: dateTime,
           notes: notes.isEmpty ? null : notes,
           createdAt: DateTime.now(),
+          category: category, // Set category
         );
         await provider.addReading(newReading);
       }
@@ -381,6 +397,77 @@ class _BloodSugarScreenState extends State<BloodSugarScreen> {
     }
   }
 
+  // New helper function to determine blood sugar category
+  String _getCategoryFromGlucose(
+      double glucose, String measurementType, int userAge, bool? hasDiabetes) {
+    // If hasDiabetes is null, we'll treat them as non-diabetic by default.
+    final isDiabetic = hasDiabetes ?? false;
+
+    if (measurementType == 'fasting') {
+      // Fasting Blood Sugar Levels
+      if (userAge >= 6 && userAge <= 12) {
+        // Children
+        if (glucose >= 70 && glucose <= 100) return 'normal';
+        if (glucose > 100 && glucose <= 125)
+          return 'prediabetes'; // Assuming prediabetes range
+        if (glucose > 125) return 'diabetes';
+      } else if (userAge >= 13 && userAge <= 19) {
+        // Teens
+        if (glucose >= 70 && glucose <= 105) return 'normal';
+        if (glucose > 105 && glucose <= 125)
+          return 'prediabetes'; // Assuming prediabetes range
+        if (glucose > 125) return 'diabetes';
+      } else if (userAge >= 20 && userAge <= 64) {
+        // Adults
+        if (glucose >= 70 && glucose <= 99) return 'normal';
+        if (glucose > 99 && glucose <= 125)
+          return 'prediabetes'; // Assuming prediabetes range
+        if (glucose > 125) return 'diabetes';
+      } else if (userAge >= 65) {
+        // Seniors
+        if (glucose >= 80 && glucose <= 120) return 'normal';
+        if (glucose > 120 && glucose <= 125)
+          return 'prediabetes'; // Assuming prediabetes range
+        if (glucose > 125) return 'diabetes';
+      }
+      // Fallback for fasting if age range not explicitly covered or outside defined normal
+      // Or if it's below the normal range for fasting, it could be 'low'.
+      if (glucose < 70) return 'low';
+      return 'high'; // If it falls out of defined normal, it's generally a concern.
+    } else if (measurementType == 'postMeal') {
+      // Post-meal (2 hours after meal) Blood Sugar Levels
+      if (isDiabetic) {
+        // For people with diabetes (Type 1 or Type 2) - American Diabetes Association (ADA) target
+        // Goal: generally < 180 mg/dL (2 hours after meal)
+        if (glucose < 80)
+          return 'low'; // Optionally add a 'low' category for post-meal if too low
+        if (glucose >= 80 && glucose < 180)
+          return 'normal'; // Normal for diabetics after meal
+        if (glucose >= 180 && glucose < 250)
+          return 'elevated'; // Elevated but not critical
+        if (glucose >= 250) return 'high'; // Significantly high
+      } else {
+        // For non-diabetics
+        // Goal: generally < 140 mg/dL (2 hours after meal)
+        if (glucose < 70) return 'low'; // Could be too low
+        if (glucose >= 70 && glucose < 140) return 'normal';
+        if (glucose >= 140 && glucose <= 199)
+          return 'prediabetes'; // Indicates prediabetes if consistently high post-meal
+        if (glucose >= 200)
+          return 'diabetes'; // A single reading >=200 post-meal can indicate diabetes
+      }
+    } else {
+      // Random Blood Sugar Levels (without regard to meal times)
+      // General guidelines for non-fasting, non-specific readings
+      if (glucose < 70) return 'low'; // Generally too low
+      if (glucose >= 70 && glucose < 140) return 'normal';
+      if (glucose >= 140 && glucose <= 199)
+        return 'elevated'; // Elevated, but not necessarily diabetes
+      if (glucose >= 200) return 'high'; // Potentially high/diabetes
+    }
+    return 'unknown'; // Default if none of the conditions are met
+  }
+
   void _deleteReading(String readingId) async {
     final locals = AppLocalizations.of(context)!;
 
@@ -389,6 +476,7 @@ class _BloodSugarScreenState extends State<BloodSugarScreen> {
       builder: (context) => AlertDialog(
         title: Text(locals.delete),
         content: Text(locals.confirmDeleteUser),
+        // This might be better as locals.confirmDeleteReading
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -473,12 +561,16 @@ class _BloodSugarScreenState extends State<BloodSugarScreen> {
     switch (category) {
       case 'normal':
         return Colors.green;
-      case 'predicates':
-      case 'elevated':
+      case 'prediabetes': // New category for pre-diabetes range
         return Colors.orange;
-      case 'diabetes':
-      case 'high':
+      case 'elevated': // Keep elevated for non-fasting elevated
+        return Colors.orange;
+      case 'diabetes': // New category for diabetes
         return Colors.red;
+      case 'high': // Keep high for generic high, or use diabetes specifically
+        return Colors.red;
+      case 'low': // For low blood sugar
+        return Colors.blue; // Or another distinct color like purple/indigo
       default:
         return Colors.grey;
     }
@@ -488,12 +580,18 @@ class _BloodSugarScreenState extends State<BloodSugarScreen> {
     switch (category) {
       case 'normal':
         return locals.normal;
-      case 'predicates':
+      case 'prediabetes': // New text for pre-diabetes
+        return locals.prediabetes ??
+            'Prediabetes'; // Add to AppLocalizations if needed
       case 'elevated':
         return locals.elevated;
-      case 'diabetes':
+      case 'diabetes': // New text for diabetes
+        return locals.diabetes ??
+            'Diabetes'; // Add to AppLocalizations if needed
       case 'high':
         return locals.high;
+      case 'low': // New text for low blood sugar
+        return locals.low ?? 'Low'; // Add to AppLocalizations if needed
       default:
         return category;
     }

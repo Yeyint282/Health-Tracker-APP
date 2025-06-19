@@ -1,3 +1,5 @@
+
+
 class BloodSugar {
   final String id;
   final String userId;
@@ -6,6 +8,7 @@ class BloodSugar {
   final DateTime dateTime;
   final String? notes;
   final DateTime createdAt;
+  final String category; // <--- This MUST be a field, not a getter
 
   BloodSugar({
     required this.id,
@@ -15,6 +18,7 @@ class BloodSugar {
     required this.dateTime,
     this.notes,
     required this.createdAt,
+    required this.category, // <--- Add to constructor
   });
 
   Map<String, dynamic> toMap() {
@@ -26,27 +30,22 @@ class BloodSugar {
       'date_time': dateTime.millisecondsSinceEpoch,
       'notes': notes,
       'created_at': createdAt.millisecondsSinceEpoch,
+      'category': category, // <--- Add to map conversion
     };
   }
 
   factory BloodSugar.fromMap(Map<String, dynamic> map) {
     return BloodSugar(
-      // Ensure 'id' is a String. Use toString() to convert if it's not.
       id: map['id']?.toString() ?? '',
-      // Ensure 'user_id' is a String.
       userId: map['user_id']?.toString() ?? '',
-      // Cast to num? then toDouble() for safety.
       glucose: (map['glucose'] as num?)?.toDouble() ?? 0.0,
-      // Explicitly cast to String? then provide default.
       measurementType: map['measurement_type'] as String? ?? 'random',
-      // Cast to int? then provide default for millisecondsSinceEpoch.
       dateTime:
           DateTime.fromMillisecondsSinceEpoch(map['date_time'] as int? ?? 0),
-      // 'notes' is already nullable, so direct cast as String? is sufficient.
       notes: map['notes'] as String?,
-      // Cast to int? then provide default for millisecondsSinceEpoch.
       createdAt:
           DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int? ?? 0),
+      category: map['category']?.toString() ?? 'unknown', // <--- Read from map
     );
   }
 
@@ -58,6 +57,7 @@ class BloodSugar {
     DateTime? dateTime,
     String? notes,
     DateTime? createdAt,
+    String? category, // <--- Add to copyWith
   }) {
     return BloodSugar(
       id: id ?? this.id,
@@ -67,29 +67,16 @@ class BloodSugar {
       dateTime: dateTime ?? this.dateTime,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
+      category: category ?? this.category, // <--- Assign in copyWith
     );
   }
 
-  String get category {
-    switch (measurementType) {
-      case 'fasting':
-        if (glucose < 100) return 'normal';
-        if (glucose < 126) return 'prediabetes';
-        return 'diabetes';
-      case 'postMeal':
-        if (glucose < 140) return 'normal';
-        if (glucose < 200) return 'prediabetes';
-        return 'diabetes';
-      default: // random
-        if (glucose < 140) return 'normal';
-        if (glucose < 200) return 'elevated';
-        return 'high';
-    }
-  }
+  // Remove the `category` getter from here.
+  // The category should be calculated in BloodSugarScreen and stored.
 
   @override
   String toString() {
-    return 'BloodSugar(id: $id, glucose: $glucose, type: $measurementType, dateTime: $dateTime)';
+    return 'BloodSugar(id: $id, glucose: $glucose, type: $measurementType, dateTime: $dateTime, category: $category)';
   }
 
   @override

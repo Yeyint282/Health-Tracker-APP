@@ -1,4 +1,4 @@
-import 'dart:io'; // <-- Add this import for File operations
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -54,9 +54,16 @@ class UserProvider with ChangeNotifier {
 
   Future<void> createUser(User user) async {
     try {
+      // The `user` object passed here should already contain the `hasDiabetes` value
+      // if it was collected from the UI (e.g., in a user creation form).
+      // The `insertUser` method in DatabaseService will handle saving it to the database.
       await _databaseService.insertUser(user);
       await loadUsers(); // Load users to get the latest list
-      _selectedUser = _users.firstWhere((u) => u.name == user.name);
+      // Assuming user.name is unique enough for selection after creation.
+      // A more robust way might be to get the user directly from the DB after insertion
+      // using the returned ID if your insert method provides it.
+      _selectedUser = _users
+          .firstWhere((u) => u.id == user.id); // Prefer ID for unique selection
       _lastSelectedUserId = _selectedUser?.id;
       notifyListeners();
     } catch (e) {
@@ -70,6 +77,9 @@ class UserProvider with ChangeNotifier {
       final User? originalUser = getUserById(updatedUser.id);
       final String? oldPhotoPath = originalUser?.photoPath;
 
+      // The `updatedUser` object passed here should already contain the updated
+      // `hasDiabetes` value if it was collected from the UI.
+      // The `updateUser` method in DatabaseService will handle saving it.
       await _databaseService.updateUser(updatedUser);
 
       final bool photoWasPresent =
@@ -91,7 +101,7 @@ class UserProvider with ChangeNotifier {
       }
 
       await loadUsers(); // Refresh the user list from the database
-      _selectedUser = getUserById(updatedUser.id);
+      _selectedUser = getUserById(updatedUser.id); // Re-select the updated user
       _lastSelectedUserId = _selectedUser?.id;
       notifyListeners();
     } catch (e) {
@@ -120,7 +130,9 @@ class UserProvider with ChangeNotifier {
       }
       await loadUsers(); // Reload users after deletion
       if (_selectedUser?.id == userId) {
-        _selectedUser = _users.isNotEmpty ? _users.first : null;
+        _selectedUser = _users.isNotEmpty
+            ? _users.first
+            : null; // Select first user or null if no users left
       }
       _lastSelectedUserId = _selectedUser?.id;
       notifyListeners();
@@ -131,9 +143,7 @@ class UserProvider with ChangeNotifier {
   }
 
   void selectUser(User? user) {
-    // Changed 'User user' to 'User? user'
     if (_selectedUser?.id != user?.id) {
-      // Also adjust the comparison for nullability
       _selectedUser = user;
       _lastSelectedUserId = user?.id;
       notifyListeners();
@@ -149,7 +159,6 @@ class UserProvider with ChangeNotifier {
     try {
       return _users.firstWhere((user) => user.id == id);
     } catch (e) {
-      // This is a safe way to handle if no user is found.
       return null;
     }
   }

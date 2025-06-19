@@ -146,5 +146,7 @@
   "manageProfiles": "ပရိုဖိုင်များကို စီမံပါ။",
   "noUsersFound": "အသုံးပြုသူ မတွေ့ပါ",
   "noUsersToSelect": "ရွေးချယ်ရန် အသုံးပြုသူများ မရှိပါ",
-  "selected": "Selected"
+  "selected": "Selected",
+  "prediabetes": "ဆီးချိုရောဂါ",
+  "diabtes": "ဆီးချိုရောဂါ"
 }

@@ -1,5 +1,4 @@
-
-
+// user_model.dart
 class User {
   final String id;
   final String name;
@@ -10,6 +9,7 @@ class User {
   final String? photoPath;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final bool? hasDiabetes; // <--- ADD THIS FIELD
 
   User({
     required this.id,
@@ -21,6 +21,7 @@ class User {
     this.photoPath,
     required this.createdAt,
     required this.updatedAt,
+    this.hasDiabetes, // <--- ADD TO CONSTRUCTOR
   });
 
   Map<String, dynamic> toMap() {
@@ -34,6 +35,11 @@ class User {
       'photo_path': photoPath,
       'created_at': createdAt.millisecondsSinceEpoch,
       'updated_at': updatedAt.millisecondsSinceEpoch,
+      'has_diabetes': hasDiabetes == true
+          ? 1
+          : (hasDiabetes == false
+              ? 0
+              : null), // <--- HANDLE TO MAP (SQLite often uses 0/1 for bool)
     };
   }
 
@@ -59,6 +65,9 @@ class User {
       // Cast to int? then provide default for millisecondsSinceEpoch.
       updatedAt:
           DateTime.fromMillisecondsSinceEpoch(map['updated_at'] as int? ?? 0),
+      hasDiabetes: map['has_diabetes'] == 1
+          ? true
+          : (map['has_diabetes'] == 0 ? false : null), // <--- HANDLE FROM MAP
     );
   }
 
@@ -72,6 +81,7 @@ class User {
     String? photoPath,
     DateTime? createdAt,
     DateTime? updatedAt,
+    bool? hasDiabetes, // <--- ADD TO copyWith
   }) {
     return User(
       id: id ?? this.id,
@@ -83,12 +93,13 @@ class User {
       photoPath: photoPath ?? this.photoPath,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      hasDiabetes: hasDiabetes ?? this.hasDiabetes, // <--- ADD TO copyWith
     );
   }
 
   @override
   String toString() {
-    return 'User(id: $id, name: $name, age: $age, gender: $gender, weight: $weight, height: $height, photoPath : $photoPath)';
+    return 'User(id: $id, name: $name, age: $age, gender: $gender, weight: $weight, height: $height, photoPath: $photoPath, hasDiabetes: $hasDiabetes)';
   }
 
   @override

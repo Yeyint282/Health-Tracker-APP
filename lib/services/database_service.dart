@@ -30,14 +30,14 @@ class DatabaseService {
     final path = join(databasesPath, 'health_tracker.db');
     return await openDatabase(
       path,
-      version: 2,
+      version: 3, // <--- INCREMENTED DATABASE VERSION TO 3
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
   }
 
   Future<void> _onCreate(Database db, int version) async {
-// Create Users table
+    // Create Users table
     await db.execute('''
         CREATE TABLE users (
         id TEXT PRIMARY KEY,
@@ -48,12 +48,12 @@ class DatabaseService {
         height REAL NOT NULL,
         photo_path TEXT,
         created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
+        updated_at INTEGER NOT NULL,
+        has_diabetes INTEGER  -- <--- ADDED has_diabetes COLUMN
         )
     ''');
 
-// Create Blood Pressure table
-
+    // Create Blood Pressure table
     await db.execute('''
         CREATE TABLE blood_pressure (
         id TEXT PRIMARY KEY,
@@ -67,8 +67,7 @@ class DatabaseService {
         )
    ''');
 
-// Create Blood Sugar table
-
+    // Create Blood Sugar table
     await db.execute('''
       CREATE TABLE blood_sugar (
       id TEXT PRIMARY KEY,
@@ -78,12 +77,12 @@ class DatabaseService {
       date_time INTEGER NOT NULL,
       notes TEXT,
       created_at INTEGER NOT NULL,
+      category TEXT, -- <--- ADDED category COLUMN
       FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       )
   ''');
 
-// Create Activities table
-
+    // Create Activities table
     await db.execute('''
       CREATE TABLE activities (
       id TEXT PRIMARY KEY,
@@ -100,8 +99,7 @@ class DatabaseService {
       )
    ''');
 
-// Create Medications table
-
+    // Create Medications table
     await db.execute('''
     CREATE TABLE medications (
     id TEXT PRIMARY KEY,
@@ -120,7 +118,7 @@ class DatabaseService {
     )
   ''');
 
-// Create indexes for better performance
+    // Create indexes for better performance
     await db.execute(
         'CREATE INDEX idx_blood_pressure_user_date ON blood_pressure (user_id, date_time)');
     await db.execute(
@@ -132,15 +130,32 @@ class DatabaseService {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-// Handle database upgrades here if needed in future versions
-    if (oldVersion < newVersion) {
-// Add migration logic here
-      if (oldVersion < 2) {
-// Add the new column 'photo_path' to the 'users' table
-        await db.execute('ALTER TABLE users ADD COLUMN photo_path TEXT;');
-      }
-// Add other migration logic for future versions if oldVersion < 3, etc.
+    // Handle database upgrades here
+    // Example: Upgrade from version 2 to 3
+    if (oldVersion < 3) {
+      // Add the new column 'has_diabetes' to the 'users' table
+      // It's good practice to provide a default value for existing rows, e.g., 0 for false.
+      await db.execute(
+          'ALTER TABLE users ADD COLUMN has_diabetes INTEGER DEFAULT 0;');
+      print('Database upgrade: Added has_diabetes column to users table.');
+
+      // Add the new column 'category' to the 'blood_sugar' table
+      await db.execute(
+          'ALTER TABLE blood_sugar ADD COLUMN category TEXT DEFAULT "unknown";');
+      print('Database upgrade: Added category column to blood_sugar table.');
     }
+    // Add other migration logic for future versions if oldVersion < 4, etc.
+    // For example, if you had a version 1 and needed to upgrade to version 2 (photo_path)
+    // and then to version 3 (has_diabetes, category), the logic would look like:
+    // if (oldVersion < 2) {
+    //   await db.execute('ALTER TABLE users ADD COLUMN photo_path TEXT;');
+    //   print('Database upgrade: Added photo_path column to users table.');
+    // }
+    // if (oldVersion < 3) {
+    //   await db.execute('ALTER TABLE users ADD COLUMN has_diabetes INTEGER DEFAULT 0;');
+    //   await db.execute('ALTER TABLE blood_sugar ADD COLUMN category TEXT DEFAULT "unknown";');
+    //   print('Database upgrade: Added has_diabetes and category columns.');
+    // }
   }
 
 // User CRUD operations
@@ -181,12 +196,14 @@ class DatabaseService {
     print('Debug: updateUser - User ID: ${user.id}');
     print('Debug: updateUser - Old Photo Path: $oldPhotoPath');
     print(
-        'DEBUG: updateUser - NewPhoto Path (from User object) : ${user.photoPath}');
+        'DEBUG: updateUser - New Photo Path (from User object): ${user.photoPath}');
+    print(
+        'DEBUG: updateUser - has_diabetes (from User object): ${user.hasDiabetes}');
 
     // Perform the update
     final int rowsAffected = await db.update(
       'users',
-      user.toMap(),
+      user.toMap(), // user.toMap() now includes has_diabetes
       where: 'id = ?',
       whereArgs: [user.id],
     );
@@ -219,7 +236,7 @@ class DatabaseService {
         (oldPhotoPath == null || oldPhotoPath.isEmpty) &&
         user.photoPath != null &&
         user.photoPath!.isNotEmpty) {
-      print('DEBUG: updateUser - Adding new photo, on old photo to delete.');
+      print('DEBUG: updateUser - Adding new photo, no old photo to delete.');
     } else {
       print(
           'DEBUG: updateUser - No photo change or update failed (rowsAffected=0).');
@@ -297,6 +314,7 @@ class DatabaseService {
 
   Future<int> insertBloodSugar(BloodSugar bloodSugar) async {
     final db = await database;
+    // bloodSugar.toMap() now includes the 'category' field
     return await db.insert('blood_sugar', bloodSugar.toMap());
   }
 
@@ -326,6 +344,7 @@ class DatabaseService {
 
   Future<int> updateBloodSugar(BloodSugar bloodSugar) async {
     final db = await database;
+    // bloodSugar.toMap() now includes the 'category' field
     return await db.update(
       'blood_sugar',
       bloodSugar.toMap(),
