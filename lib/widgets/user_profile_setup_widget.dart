@@ -209,6 +209,7 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
               ),
               const SizedBox(height: 32),
               TextFormField(
+                keyboardType: TextInputType.name,
                 controller: _nameController,
                 decoration: InputDecoration(
                   labelText: locals.name,
@@ -227,6 +228,7 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
               const SizedBox(height: 20),
               TextFormField(
                 controller: _ageController,
+                keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: locals.age,
                   prefixIcon: const Icon(Icons.cake),
@@ -234,7 +236,6 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                keyboardType: TextInputType.number,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return locals.pleaseEnterAge;

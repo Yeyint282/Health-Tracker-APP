@@ -26,16 +26,13 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-// Variable to track the time of the last back button press
-
+  // Variable to track the time of the last back button press
   DateTime? _lastPressedAt;
 
   @override
   void initState() {
     super.initState();
-
-// Ensure provider are initialized after the first frame is built
-
+    // Ensure provider are initialized after the first frame is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeProviders();
     });
@@ -62,12 +59,11 @@ class _HomeScreenState extends State<HomeScreen> {
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
-// If the pop was already handled (e.g., by another nested PopScope), just return.
+        // If the pop was already handled (e.g., by another nested PopScope), just return.
         if (didPop) {
           return;
         }
-
-// Logic for "double back to exit"
+        // Logic for "double back to exit"
         if (_lastPressedAt == null ||
             DateTime.now().difference(_lastPressedAt!) >
                 const Duration(seconds: 2)) {
@@ -191,13 +187,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHomeContent() {
     final locals = AppLocalizations.of(context)!;
-
     final theme = Theme.of(context);
-
     final userProvider = Provider.of<UserProvider>(context);
-
     final user = userProvider.selectedUser;
-
     return Scaffold(
       appBar: AppBar(
         title: Text(locals.homeTitle),
@@ -241,7 +233,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               _buildUserGreeting(),
               const SizedBox(height: 24),
-              _buildQuickStats(),
+              _buildQuickStats(), // This is where the magic happens
               const SizedBox(height: 24),
               _buildHealthMetrics(),
               const SizedBox(height: 16),
@@ -272,16 +264,12 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             CircleAvatar(
               radius: 30,
-
               backgroundColor: theme.colorScheme.primaryContainer,
-
-// Conditionally display the user's photo or initial
-
+              // Conditionally display the user's photo or initial
               backgroundImage:
                   (user.photoPath != null && user.photoPath!.isNotEmpty)
                       ? FileImage(File(user.photoPath!))
                       : null,
-
               child: (user.photoPath == null || user.photoPath!.isEmpty)
                   ? Text(
                       user.name.isNotEmpty
@@ -296,7 +284,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
 
             const SizedBox(width: 16),
-
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -317,8 +304,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-// Show swap user icon only if there's more than one user
-
+            // Show swap user icon only if there's more than one user
             if (userProvider.users.length > 1)
               IconButton(
                 icon: const Icon(Icons.swap_horiz),
@@ -336,9 +322,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildQuickStats() {
     final locals = AppLocalizations.of(context)!;
-
     final theme = Theme.of(context);
-
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(
@@ -364,33 +348,60 @@ class _HomeScreenState extends State<HomeScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     Expanded(
-                      child: _buildStatItem(
-                        icon: Icons.monitor_heart,
-                        label: locals.bloodPressure,
-                        value: bpProvider.latestReading != null
-                            ? '${bpProvider.latestReading!.systolic}/${bpProvider.latestReading!.diastolic}'
-                            : '--',
-                        color: Colors.red.shade600,
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const BloodPressureScreen()),
+                          );
+                        },
+                        child: _buildStatItem(
+                          icon: Icons.monitor_heart,
+                          label: locals.bloodPressure,
+                          value: bpProvider.latestReading != null
+                              ? '${bpProvider.latestReading!.systolic}/${bpProvider.latestReading!.diastolic}'
+                              : '--',
+                          color: Colors.red.shade600,
+                        ),
                       ),
                     ),
                     Expanded(
-                      child: _buildStatItem(
-                        icon: Icons.bloodtype,
-                        label: locals.bloodSugar,
-                        value: bsProvider.latestReading != null
-                            ? '${bsProvider.latestReading!.glucose.toStringAsFixed(0)}'
-                            : '--',
-                        color: Colors.blue.shade600,
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const BloodSugarScreen()),
+                          );
+                        },
+                        child: _buildStatItem(
+                          icon: Icons.bloodtype,
+                          label: locals.bloodSugar,
+                          value: bsProvider.latestReading != null
+                              ? '${bsProvider.latestReading!.glucose.toStringAsFixed(0)}'
+                              : '--',
+                          color: Colors.blue.shade600,
+                        ),
                       ),
                     ),
                     Expanded(
-                      child: _buildStatItem(
-                        icon: Icons.directions_walk,
-                        label: locals.steps,
-                        value: activityProvider.latestActivity != null
-                            ? '${activityProvider.latestActivity!.steps}'
-                            : '0',
-                        color: Colors.green.shade600,
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const ActivityScreen()),
+                          );
+                        },
+                        child: _buildStatItem(
+                          icon: Icons.directions_walk,
+                          label: locals.steps,
+                          value: activityProvider.latestActivity != null
+                              ? '${activityProvider.latestActivity!.steps}'
+                              : '0',
+                          color: Colors.green.shade600,
+                        ),
                       ),
                     ),
                   ],
@@ -511,8 +522,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-// Refreshes data for all health metric providers.
-
+  // Refreshes data for all health metric providers.
   Future<void> _refreshData() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
