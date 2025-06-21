@@ -28,11 +28,11 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   // Variable to track the time of the last back button press
   DateTime? _lastPressedAt;
+  bool _isSelectingUser = false;
 
   @override
   void initState() {
     super.initState();
-    // Ensure provider are initialized after the first frame is built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeProviders();
     });
@@ -59,7 +59,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return PopScope(
       canPop: false,
       onPopInvoked: (didPop) async {
-        // If the pop was already handled (e.g., by another nested PopScope), just return.
         if (didPop) {
           return;
         }
@@ -86,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
               isDialog: false,
             );
           }
-          if (userProvider.selectedUser == null) {
+          if (userProvider.selectedUser == null || _isSelectingUser) {
             return _buildUserSelectionScreen();
           }
           return _buildHomeContent();
@@ -98,8 +97,19 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildUserSelectionScreen() {
     final locals = AppLocalizations.of(context)!;
     final userProvider = Provider.of<UserProvider>(context);
+    final canGoBack = userProvider.selectedUser != null;
     return Scaffold(
       appBar: AppBar(
+        leading: canGoBack
+            ? IconButton(
+                onPressed: () {
+                  setState(() {
+                    _isSelectingUser = false;
+                  });
+                },
+                icon: const Icon(Icons.arrow_back),
+              )
+            : null,
         title: Text(locals.selectUser),
         actions: [
           IconButton(
@@ -124,13 +134,13 @@ class _HomeScreenState extends State<HomeScreen> {
           return Card(
             margin: const EdgeInsets.symmetric(vertical: 8),
             elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: isSelected
-                  ? BorderSide(
-                      color: Theme.of(context).colorScheme.primary, width: 2)
-                  : BorderSide.none,
-            ),
+            // shape: RoundedRectangleBorder(
+            //   borderRadius: BorderRadius.circular(12),
+            //   side: isSelected
+            //       ? BorderSide(
+            //           color: Theme.of(context).colorScheme.primary, width: 2)
+            //       : BorderSide.none,
+            // ),
             child: ListTile(
               selected: isSelected,
               selectedTileColor:
@@ -162,21 +172,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 '${locals.age}: ${user.age}, ${locals.gender}: ${user.gender}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
-              trailing: isSelected
-                  ? Chip(
-                      label: Text('Selected'),
-                      backgroundColor:
-                          Theme.of(context).colorScheme.primaryContainer,
-                      labelStyle: TextStyle(
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      padding: EdgeInsets.zero,
-                    )
-                  : null,
+              trailing: isSelected ? Icon(Icons.check_circle) : null,
               onTap: () {
                 userProvider.selectUser(user);
                 _initializeProviders();
+                if (!canGoBack) {
+                  setState(() {
+                    _isSelectingUser = false;
+                  });
+                }
               },
             ),
           );
@@ -190,6 +194,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final theme = Theme.of(context);
     final userProvider = Provider.of<UserProvider>(context);
     final user = userProvider.selectedUser;
+    if (user == null) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: Text(locals.homeTitle),
@@ -310,7 +321,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: const Icon(Icons.swap_horiz),
                 color: theme.colorScheme.secondary,
                 onPressed: () {
-                  userProvider.clearSelectedUser();
+                  setState(() {
+                    _isSelectingUser = true;
+                  });
                 },
                 tooltip: locals.switchUser,
               ),

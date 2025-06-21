@@ -161,12 +161,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: _exportData,
             ),
             ListTile(
-              title: const Text('Import Data'),
-              subtitle: const Text('Import health data from backup'),
-              leading: const Icon(Icons.upload),
-              onTap: _importData,
-            ),
-            ListTile(
               title: const Text('Clear All Data'),
               subtitle: const Text('Delete all health data (irreversible)'),
               leading: const Icon(Icons.delete_forever, color: Colors.red),
@@ -215,13 +209,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     // TODO: Implement data export
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Export feature coming soon')),
-    );
-  }
-
-  void _importData() {
-    // TODO: Implement data import
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Import feature coming soon')),
     );
   }
 

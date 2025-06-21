@@ -9,6 +9,7 @@ class UserProvider with ChangeNotifier {
   final DatabaseService _databaseService = DatabaseService.instance;
   List<User> _users = [];
   User? _selectedUser;
+
   String? _lastSelectedUserId;
   bool _isLoading = false;
 
@@ -28,15 +29,19 @@ class UserProvider with ChangeNotifier {
 
   Future<void> loadUsers() async {
     _isLoading = true;
-    notifyListeners();
+    notifyListeners(); // Notify listeners that loading has started
     try {
       _users = await _databaseService.getUsers();
+
+      // If no user is currently selected AND there are users available,
+      // try to select the first user.
       if (_selectedUser == null && _users.isNotEmpty) {
         _selectedUser = _users.first;
         _lastSelectedUserId = _users.first.id;
       }
-      // After loading, if the selected user was deleted, or no users exist, clear selection
-      if (_selectedUser != null &&
+      // If a user *was* selected, but they are no longer in the list (e.g., deleted by another process),
+      // or if there are no users left, clear the selection or select the first available.
+      else if (_selectedUser != null &&
           !_users.any((user) => user.id == _selectedUser!.id)) {
         _selectedUser = _users.isNotEmpty ? _users.first : null;
         _lastSelectedUserId = _selectedUser?.id;
@@ -46,33 +51,44 @@ class UserProvider with ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Error loading users: $e');
+      // Optionally, handle error state for UI (e.g., _hasError = true)
     } finally {
       _isLoading = false;
-      notifyListeners();
+      notifyListeners(); // Notify listeners that loading has finished and data updated
     }
   }
 
   Future<void> createUser(User user) async {
+    _isLoading = true; // Set loading true during operation
+    notifyListeners();
     try {
       // The `user` object passed here should already contain the `hasDiabetes` value
       // if it was collected from the UI (e.g., in a user creation form).
       // The `insertUser` method in DatabaseService will handle saving it to the database.
       await _databaseService.insertUser(user);
-      await loadUsers(); // Load users to get the latest list
-      // Assuming user.name is unique enough for selection after creation.
-      // A more robust way might be to get the user directly from the DB after insertion
-      // using the returned ID if your insert method provides it.
-      _selectedUser = _users
-          .firstWhere((u) => u.id == user.id); // Prefer ID for unique selection
+      await loadUsers(); // Reload users to get the latest list from DB, including the new user
+      // After loading, ensure the newly created user is selected.
+      // This relies on `loadUsers` having updated `_users` and then we find it.
+      // Assuming `user.id` is stable after insertion, this is robust.
+      _selectedUser = _users.firstWhere((u) => u.id == user.id,
+          orElse: () => _users
+              .first); // Fallback to first user if new user not found (unlikely)
       _lastSelectedUserId = _selectedUser?.id;
+      // notifyListeners() is called by loadUsers, but calling it here ensures
+      // immediate UI update for selection change if loadUsers finished before this line.
       notifyListeners();
     } catch (e) {
       debugPrint('Error creating user: $e');
-      rethrow;
+      rethrow; // Re-throw to allow UI to handle specific errors if needed
+    } finally {
+      _isLoading = false;
+      // notifyListeners(); // Already called if loadUsers is successful, or by rethrow.
     }
   }
 
   Future<void> updateUser(User updatedUser) async {
+    _isLoading = true; // Set loading true during operation
+    notifyListeners();
     try {
       final User? originalUser = getUserById(updatedUser.id);
       final String? oldPhotoPath = originalUser?.photoPath;
@@ -90,7 +106,8 @@ class UserProvider with ChangeNotifier {
 
       if (photoWasPresent && (newPhotoIsDifferent || newPhotoIsNull)) {
         try {
-          final oldFile = File(oldPhotoPath);
+          final oldFile =
+              File(oldPhotoPath!); // oldPhotoPath is guaranteed not null here
           if (await oldFile.exists()) {
             await oldFile.delete();
             debugPrint('Successfully deleted old photo: $oldPhotoPath');
@@ -103,17 +120,23 @@ class UserProvider with ChangeNotifier {
       await loadUsers(); // Refresh the user list from the database
       _selectedUser = getUserById(updatedUser.id); // Re-select the updated user
       _lastSelectedUserId = _selectedUser?.id;
-      notifyListeners();
+      notifyListeners(); // Notify listeners for final state update
     } catch (e) {
       debugPrint('Error updating user: $e');
       rethrow;
+    } finally {
+      _isLoading = false;
+      // notifyListeners(); // Called if loadUsers is successful, or by rethrow.
     }
   }
 
   Future<void> deleteUser(String userId) async {
+    _isLoading = true; // Set loading true during operation
+    notifyListeners();
     try {
       final User? userToDelete = getUserById(userId);
       await _databaseService.deleteUser(userId);
+
       if (userToDelete != null &&
           userToDelete.photoPath != null &&
           userToDelete.photoPath!.isNotEmpty) {
@@ -128,21 +151,27 @@ class UserProvider with ChangeNotifier {
           debugPrint('Error deleting user photo file: $e');
         }
       }
+
       await loadUsers(); // Reload users after deletion
+      // If the deleted user was the selected user, re-select the first user or null.
       if (_selectedUser?.id == userId) {
         _selectedUser = _users.isNotEmpty
             ? _users.first
             : null; // Select first user or null if no users left
+        _lastSelectedUserId = _selectedUser?.id;
       }
-      _lastSelectedUserId = _selectedUser?.id;
-      notifyListeners();
+      notifyListeners(); // Notify listeners for final state update
     } catch (e) {
       debugPrint('Error deleting user: $e');
       rethrow;
+    } finally {
+      _isLoading = false;
+      // notifyListeners(); // Called if loadUsers is successful, or by rethrow.
     }
   }
 
   void selectUser(User? user) {
+    // Only update and notify if the selected user has actually changed.
     if (_selectedUser?.id != user?.id) {
       _selectedUser = user;
       _lastSelectedUserId = user?.id;
@@ -151,8 +180,11 @@ class UserProvider with ChangeNotifier {
   }
 
   void clearSelectedUser() {
-    _selectedUser = null;
-    notifyListeners();
+    if (_selectedUser != null) {
+      _selectedUser = null;
+      _lastSelectedUserId = null;
+      notifyListeners();
+    }
   }
 
   User? getUserById(String id) {
