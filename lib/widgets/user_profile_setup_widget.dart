@@ -351,18 +351,24 @@ class _UserProfileSetupState extends State<UserProfileSetup> {
                     _pickImage(ImageSource.camera);
                   },
                 ),
-                // if(_pickedImageFile != null)
-                //   ListTile(
-                //     leading: const Icon(Icons.delete,color: Colors.red,),
-                //     title: Text(locals.removePhoto,style: const TextStyle(color: Colors.red),),
-                //     onTap: (){
-                //       setState(() {
-                //         _pickedImageFile = null;
-                //         _userPhotoPath = null;
-                //       });
-                //       Navigator.pop(context);
-                //     },
-                //   ),
+                if (_pickedImageFile != null)
+                  ListTile(
+                    leading: const Icon(
+                      Icons.delete,
+                      color: Colors.red,
+                    ),
+                    title: Text(
+                      locals.removePhoto,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                    onTap: () {
+                      setState(() {
+                        _pickedImageFile = null;
+                        _userPhotoPath = null;
+                      });
+                      Navigator.pop(context);
+                    },
+                  ),
               ],
             ),
           );

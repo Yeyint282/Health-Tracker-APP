@@ -1,3 +1,4 @@
+// user_provider.dart (From previous response, keep it as is)
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -29,75 +30,59 @@ class UserProvider with ChangeNotifier {
 
   Future<void> loadUsers() async {
     _isLoading = true;
-    notifyListeners(); // Notify listeners that loading has started
+    notifyListeners();
     try {
       _users = await _databaseService.getUsers();
 
-      // If no user is currently selected AND there are users available,
-      // try to select the first user.
-      if (_selectedUser == null && _users.isNotEmpty) {
+      if (_selectedUser != null) {
+        final updatedSelectedUser =
+            _users.firstWhereOrNull((u) => u.id == _selectedUser!.id);
+        if (updatedSelectedUser != null) {
+          _selectedUser = updatedSelectedUser;
+        } else {
+          _selectedUser = _users.isNotEmpty ? _users.first : null;
+        }
+      } else if (_users.isNotEmpty) {
         _selectedUser = _users.first;
-        _lastSelectedUserId = _users.first.id;
       }
-      // If a user *was* selected, but they are no longer in the list (e.g., deleted by another process),
-      // or if there are no users left, clear the selection or select the first available.
-      else if (_selectedUser != null &&
-          !_users.any((user) => user.id == _selectedUser!.id)) {
-        _selectedUser = _users.isNotEmpty ? _users.first : null;
-        _lastSelectedUserId = _selectedUser?.id;
-      } else if (_users.isEmpty) {
-        _selectedUser = null;
-        _lastSelectedUserId = null;
-      }
+      _lastSelectedUserId = _selectedUser?.id;
     } catch (e) {
       debugPrint('Error loading users: $e');
-      // Optionally, handle error state for UI (e.g., _hasError = true)
     } finally {
       _isLoading = false;
-      notifyListeners(); // Notify listeners that loading has finished and data updated
+      notifyListeners();
     }
   }
 
   Future<void> createUser(User user) async {
-    _isLoading = true; // Set loading true during operation
+    _isLoading = true;
     notifyListeners();
     try {
-      // The `user` object passed here should already contain the `hasDiabetes` value
-      // if it was collected from the UI (e.g., in a user creation form).
-      // The `insertUser` method in DatabaseService will handle saving it to the database.
       await _databaseService.insertUser(user);
-      await loadUsers(); // Reload users to get the latest list from DB, including the new user
-      // After loading, ensure the newly created user is selected.
-      // This relies on `loadUsers` having updated `_users` and then we find it.
-      // Assuming `user.id` is stable after insertion, this is robust.
-      _selectedUser = _users.firstWhere((u) => u.id == user.id,
-          orElse: () => _users
-              .first); // Fallback to first user if new user not found (unlikely)
-      _lastSelectedUserId = _selectedUser?.id;
-      // notifyListeners() is called by loadUsers, but calling it here ensures
-      // immediate UI update for selection change if loadUsers finished before this line.
-      notifyListeners();
+      _users.add(user);
+      _users.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      _selectedUser = user;
+      _lastSelectedUserId = user.id;
     } catch (e) {
       debugPrint('Error creating user: $e');
-      rethrow; // Re-throw to allow UI to handle specific errors if needed
+      rethrow;
     } finally {
       _isLoading = false;
-      // notifyListeners(); // Already called if loadUsers is successful, or by rethrow.
+      notifyListeners();
     }
   }
 
   Future<void> updateUser(User updatedUser) async {
-    _isLoading = true; // Set loading true during operation
+    _isLoading = true;
     notifyListeners();
     try {
       final User? originalUser = getUserById(updatedUser.id);
       final String? oldPhotoPath = originalUser?.photoPath;
 
-      // The `updatedUser` object passed here should already contain the updated
-      // `hasDiabetes` value if it was collected from the UI.
-      // The `updateUser` method in DatabaseService will handle saving it.
+      // 1. Update the database record
       await _databaseService.updateUser(updatedUser);
 
+      // 2. Handle old photo file deletion AND cache eviction
       final bool photoWasPresent =
           oldPhotoPath != null && oldPhotoPath.isNotEmpty;
       final bool newPhotoIsDifferent = oldPhotoPath != updatedUser.photoPath;
@@ -105,73 +90,105 @@ class UserProvider with ChangeNotifier {
           updatedUser.photoPath == null || updatedUser.photoPath!.isEmpty;
 
       if (photoWasPresent && (newPhotoIsDifferent || newPhotoIsNull)) {
+        // Evict the old image from Flutter's cache BEFORE deleting the file
+        if (oldPhotoPath != null && oldPhotoPath.isNotEmpty) {
+          final oldImageProvider = FileImage(File(oldPhotoPath));
+          await oldImageProvider.evict();
+          debugPrint('Evicted old photo from cache: $oldPhotoPath');
+        }
+
         try {
-          final oldFile =
-              File(oldPhotoPath!); // oldPhotoPath is guaranteed not null here
+          final oldFile = File(oldPhotoPath!);
           if (await oldFile.exists()) {
             await oldFile.delete();
-            debugPrint('Successfully deleted old photo: $oldPhotoPath');
+            debugPrint('Successfully deleted old photo file: $oldPhotoPath');
           }
         } catch (e) {
           debugPrint('Error deleting old photo file: $e');
         }
       }
 
-      await loadUsers(); // Refresh the user list from the database
-      _selectedUser = getUserById(updatedUser.id); // Re-select the updated user
+      // If a new photo was chosen, ensure it's also not cached stale
+      // This condition ensures we only evict if a *new* valid path is set, AND it's different from the old one
+      if (updatedUser.photoPath != null &&
+          updatedUser.photoPath!.isNotEmpty &&
+          newPhotoIsDifferent) {
+        final newImageProvider = FileImage(File(updatedUser.photoPath!));
+        // It might not be in cache yet, but evicting here ensures no stale data is used if it was somehow in cache from another process/run.
+        await newImageProvider.evict();
+        debugPrint(
+            'Evicted new photo from cache (precautionary): ${updatedUser.photoPath}');
+      }
+
+      // 3. Update the in-memory list directly
+      final index = _users.indexWhere((user) => user.id == updatedUser.id);
+      if (index != -1) {
+        _users[index] = updatedUser;
+      }
+
+      // 4. Ensure _selectedUser points to the *newly updated object instance*
+      if (_selectedUser?.id == updatedUser.id) {
+        _selectedUser = updatedUser;
+      }
       _lastSelectedUserId = _selectedUser?.id;
-      notifyListeners(); // Notify listeners for final state update
     } catch (e) {
       debugPrint('Error updating user: $e');
       rethrow;
     } finally {
       _isLoading = false;
-      // notifyListeners(); // Called if loadUsers is successful, or by rethrow.
+      notifyListeners();
     }
   }
 
   Future<void> deleteUser(String userId) async {
-    _isLoading = true; // Set loading true during operation
+    _isLoading = true;
     notifyListeners();
     try {
       final User? userToDelete = getUserById(userId);
       await _databaseService.deleteUser(userId);
 
+      // Remove from in-memory list
+      _users.removeWhere((user) => user.id == userId);
+
+      // Evict and delete photo file
       if (userToDelete != null &&
           userToDelete.photoPath != null &&
           userToDelete.photoPath!.isNotEmpty) {
         try {
+          final oldImageProvider = FileImage(File(userToDelete.photoPath!));
+          await oldImageProvider.evict(); // Evict from cache
+          debugPrint(
+              'Evicted deleted user photo from cache: ${userToDelete.photoPath}');
+
           final file = File(userToDelete.photoPath!);
           if (await file.exists()) {
             await file.delete();
             debugPrint(
-                'Successfully deleted user photo: ${userToDelete.photoPath}');
+                'Successfully deleted user photo file: ${userToDelete.photoPath}');
           }
         } catch (e) {
           debugPrint('Error deleting user photo file: $e');
         }
       }
 
-      await loadUsers(); // Reload users after deletion
-      // If the deleted user was the selected user, re-select the first user or null.
+      // Re-adjust selected user after deletion
       if (_selectedUser?.id == userId) {
-        _selectedUser = _users.isNotEmpty
-            ? _users.first
-            : null; // Select first user or null if no users left
+        _selectedUser = _users.isNotEmpty ? _users.first : null;
+        _lastSelectedUserId = _selectedUser?.id;
+      } else if (_selectedUser == null && _users.isNotEmpty) {
+        _selectedUser = _users.first;
         _lastSelectedUserId = _selectedUser?.id;
       }
-      notifyListeners(); // Notify listeners for final state update
     } catch (e) {
       debugPrint('Error deleting user: $e');
       rethrow;
     } finally {
       _isLoading = false;
-      // notifyListeners(); // Called if loadUsers is successful, or by rethrow.
+      notifyListeners();
     }
   }
 
   void selectUser(User? user) {
-    // Only update and notify if the selected user has actually changed.
     if (_selectedUser?.id != user?.id) {
       _selectedUser = user;
       _lastSelectedUserId = user?.id;
@@ -193,5 +210,17 @@ class UserProvider with ChangeNotifier {
     } catch (e) {
       return null;
     }
+  }
+}
+
+// Extension to add firstWhereOrNull for convenience, similar to Dart 2.12+
+extension IterableExtension<T> on Iterable<T> {
+  T? firstWhereOrNull(bool Function(T element) test) {
+    for (var element in this) {
+      if (test(element)) {
+        return element;
+      }
+    }
+    return null;
   }
 }

@@ -166,6 +166,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   ) {
     final locals = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    Key avatarKey =
+        ValueKey('user_avatar_${user.id}_${user.photoPath ?? 'no_photo'}');
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -174,6 +176,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       child: ListTile(
         contentPadding: const EdgeInsets.all(16),
         leading: CircleAvatar(
+          key: avatarKey,
           radius: 30,
           backgroundColor: theme.colorScheme.primary,
           backgroundImage:
@@ -209,40 +212,24 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     : theme.colorScheme.onSurface.withOpacity(0.7),
               ),
             ),
-            if (user.weight != null || user.height != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                '${user.weight != null ? '${user.weight!.toStringAsFixed(0)} ${locals.kg}' : ''}'
-                '${user.weight != null && user.height != null ? ' • ' : ''}'
-                '${user.height != null ? '${user.height!.toStringAsFixed(0)} ${locals.cm}' : ''}',
-                style: TextStyle(
-                  color: isSelected
-                      ? theme.colorScheme.onPrimaryContainer.withOpacity(0.8)
-                      : theme.colorScheme.onSurface.withOpacity(0.7),
-                ),
-              ),
-            ],
           ],
         ),
-        // MODIFICATION START
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (isSelected) // Only show the checkmark if selected
+            if (isSelected)
               Padding(
-                padding: const EdgeInsets.only(right: 8.0), // Add some spacing
+                padding: const EdgeInsets.only(right: 8.0),
                 child: Icon(
                   Icons.check_circle,
                   color: theme.colorScheme.primary,
                   size: 32,
                 ),
               ),
-            // The PopupMenuButton is now always visible for all users
             PopupMenuButton<String>(
               onSelected: (value) {
                 switch (value) {
                   case 'select':
-                    // Only allow selection if not already selected
                     if (!isSelected) {
                       _selectUser(user, provider);
                     }
@@ -258,7 +245,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               itemBuilder: (context) => [
                 PopupMenuItem(
                   value: 'select',
-                  enabled: !isSelected, // Disable if already selected
+                  enabled: !isSelected,
                   child: Row(
                     children: [
                       const Icon(Icons.person),
@@ -292,9 +279,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ),
           ],
         ),
-        // Set onTap to null if selected, preventing re-selection by tapping the card body
         onTap: isSelected ? null : () => _selectUser(user, provider),
-        // MODIFICATION END
       ),
     );
   }
@@ -328,6 +313,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
     String? selectedGender = user.gender;
 
+    // Initialize with existing photo path if any
     final ValueNotifier<File?> imageFileNotifier = ValueNotifier<File?>(
       (user.photoPath != null && user.photoPath!.isNotEmpty)
           ? File(user.photoPath!)
@@ -336,6 +322,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     await showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: Text(locals.updateProfile),
         content: SingleChildScrollView(
@@ -378,21 +365,25 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     }
                                   },
                                 ),
-                                if (currentImageFile != null)
-                                  ListTile(
-                                    leading: const Icon(
-                                      Icons.delete,
-                                      color: Colors.red,
-                                    ),
-                                    title: Text(
-                                      locals.removePhoto,
-                                      style: const TextStyle(color: Colors.red),
-                                    ),
-                                    onTap: () {
-                                      imageFileNotifier.value = null;
-                                      Navigator.pop(context);
-                                    },
-                                  ),
+                                // Show remove option if there's currently a photo OR if one was just picked but not saved yet
+                                // if (currentImageFile != null ||
+                                //     (user.photoPath != null &&
+                                //         user.photoPath!.isNotEmpty))
+                                //   ListTile(
+                                //     leading: const Icon(
+                                //       Icons.delete,
+                                //       color: Colors.red,
+                                //     ),
+                                //     title: Text(
+                                //       locals.removePhoto,
+                                //       style: const TextStyle(color: Colors.red),
+                                //     ),
+                                //     onTap: () {
+                                //       imageFileNotifier.value =
+                                //           null; // Set to null
+                                //       Navigator.pop(context);
+                                //     },
+                                //   ),
                               ],
                             ),
                           );
@@ -494,6 +485,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ),
           ElevatedButton(
             onPressed: () {
+              // Pass the current value of the notifier directly
               _saveUserUpdates(
                 user,
                 nameController.text,
@@ -501,7 +493,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 selectedGender ?? 'other',
                 weightController.text,
                 heightController.text,
-                imageFileNotifier.value,
+                imageFileNotifier.value, // Pass the File? directly
               );
             },
             child: Text(locals.save),
@@ -510,21 +502,22 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       ),
     );
 
-    imageFileNotifier.dispose();
+    imageFileNotifier.dispose(); // Dispose the notifier when dialog closes
 
-    if (mounted) {
-      Provider.of<UserProvider>(context, listen: false).loadUsers();
-    }
+    // No need to call loadUsers here, provider will notify based on internal state changes
+    // if (mounted) {
+    //   Provider.of<UserProvider>(context, listen: false).loadUsers();
+    // }
   }
 
   void _saveUserUpdates(
-    User originalUser, // Renamed for clarity
+    User originalUser,
     String name,
     String ageText,
     String gender,
     String weightText,
     String heightText,
-    File? newImageFile,
+    File? newImageFile, // This will be null if "Remove Photo" was tapped
   ) async {
     if (name.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -543,7 +536,22 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final weight = weightText.isEmpty ? null : double.tryParse(weightText);
     final height = heightText.isEmpty ? null : double.tryParse(heightText);
 
-    final String? newPhotoPath = newImageFile?.path;
+    // This is the core fix for the photo path
+    // If newImageFile is null, it means either:
+    // 1. User tapped "Remove Photo" (imageFileNotifier.value became null)
+    // 2. User didn't pick a new photo and original was null
+    // 3. User didn't pick a new photo and original was not null (so newImageFile is null, photoPath remains original)
+    // We only want to clear the path if newImageFile is explicitly null AND
+    // the original photo path was not null.
+    String? photoPathToSave;
+    if (newImageFile == null) {
+      // User has either removed the photo or didn't select a new one.
+      // We set it to null here to explicitly clear it in the model.
+      photoPathToSave = null;
+    } else {
+      // A new image file was provided
+      photoPathToSave = newImageFile.path;
+    }
 
     final updatedUser = originalUser.copyWith(
       name: name.trim(),
@@ -551,15 +559,21 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       gender: gender,
       weight: weight,
       height: height,
-      photoPath: newPhotoPath,
+      photoPath: photoPathToSave,
+      // Use the determined path
+      createdAt: originalUser.createdAt,
       updatedAt: DateTime.now(),
     );
 
+    debugPrint(
+        'DEBUG: _saveUserUpdates - Final updatedUser.photoPath: ${updatedUser.photoPath}');
+
     try {
       final provider = Provider.of<UserProvider>(context, listen: false);
+      // We pass the updatedUser to the provider
       await provider.updateUser(updatedUser);
       if (mounted) {
-        Navigator.pop(context);
+        Navigator.pop(context); // Close the dialog
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated successfully')),
         );
@@ -600,10 +614,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(locals.userDeleted)),
           );
-          // The UserProvider's deleteUser now handles selection logic
-          // and loadUsers will also ensure a valid user is selected or null.
-          // No need for a separate selectUser(null) call here directly.
-          // Provider.of<UserProvider>(context, listen: false).loadUsers(); // Already called by deleteUser internally
         }
       } catch (e) {
         if (mounted) {
@@ -626,7 +636,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       ),
     )
         .then((_) {
-      Provider.of<UserProvider>(context, listen: false).loadUsers();
+      // No need to call loadUsers here, provider's listeners will handle it
+      // Provider.of<UserProvider>(context, listen: false).loadUsers();
     });
   }
 

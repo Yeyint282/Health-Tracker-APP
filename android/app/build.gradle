@@ -8,18 +8,19 @@ plugins {
 android {
     namespace = "com.example.health_life"
     compileSdk = 35
-        ndkVersion = "25.1.8937393"
+    ndkVersion = "25.1.8937393"
     defaultConfig {
         targetSdkVersion 33
     }
 
     compileOptions {
+        coreLibraryDesugaringEnabled true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17
+        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     defaultConfig {
@@ -40,6 +41,12 @@ android {
             signingConfig = signingConfigs.debug
         }
     }
+}
+
+dependencies {
+    // Required for core library desugaring
+    // Use the latest stable version if 2.0.4 causes issues, e.g., by checking Android developer docs.
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
 }
 
 flutter {
