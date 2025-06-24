@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:health_life/providers/setting_porvider.dart';
+import 'package:health_life/services/notification_service.dart';
 import 'package:provider/provider.dart';
-import 'package:timezone/data/latest.dart' as tz;
 
 import 'providers/activity_provider.dart';
 import 'providers/blood_pressure_provider.dart';
@@ -16,14 +16,9 @@ import 'services/database_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Initialize timezone data
-  tz.initializeTimeZones();
-
-  // Initialize services
+  await NotificationService.initialize();
   await DatabaseService.instance.database;
-
-  // Set preferred orientations
+  await NotificationService.requestPermissions();
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,

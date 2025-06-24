@@ -148,5 +148,16 @@
   "noUsersToSelect": "No Users To Select",
   "selected": "Selected",
   "prediabetes": "Prediabetes",
-  "diabetes": "Diabetes"
+  "diabetes": "Diabetes",
+  "selectUserToExportData": "Select User To Export Data",
+  "exportingData": "Exporting Data",
+  "healthDataExportedSuccessfully": "Health Data Exported Successfully",
+  "errorExportingData": "Error Exporting Data",
+  "selectExportRange": "Select Export Range",
+  "oneWeek": "One Week",
+  "twoWeek": "Two Weeks",
+  "threeWeek": "Three Week",
+  "oneMonth": "One Month",
+  "allRecords": "All Records",
+  "noDataToExport": "No health data available for export."
 }

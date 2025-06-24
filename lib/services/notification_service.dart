@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
@@ -5,50 +6,51 @@ import 'package:timezone/timezone.dart' as tz;
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
-
   static bool _initialized = false;
 
   static Future<void> initialize() async {
     if (_initialized) return;
-
     tz.initializeTimeZones();
-
-    const androidSettings =
+    const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-    const iosSettings = DarwinInitializationSettings(
+    const DarwinInitializationSettings iosSettings =
+        DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
-
-    const initSettings = InitializationSettings(
+    const InitializationSettings initSettings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
     );
-
     await _notifications.initialize(
       initSettings,
       onDidReceiveNotificationResponse: _onNotificationTapped,
+      onDidReceiveBackgroundNotificationResponse: _onNotificationTapped,
     );
-
     _initialized = true;
   }
 
+  @pragma('vm:entry-point')
   static void _onNotificationTapped(NotificationResponse response) {
-    // Handle notification tap
+    if (response.payload != null && response.payload!.isNotEmpty) {
+      debugPrint('Notification Tapped with payload: ${response.payload}');
+    }
   }
 
   static Future<bool> requestPermissions() async {
-    final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final AndroidFlutterLocalNotificationsPlugin? androidPlugin =
+        _notifications.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
 
     if (androidPlugin != null) {
-      return await androidPlugin.requestNotificationsPermission() ?? false;
+      bool granted =
+          await androidPlugin.requestNotificationsPermission() ?? false;
+      return granted;
     }
-
-    final iosPlugin = _notifications.resolvePlatformSpecificImplementation<
-        IOSFlutterLocalNotificationsPlugin>();
-
+    final IOSFlutterLocalNotificationsPlugin? iosPlugin =
+        _notifications.resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin>();
     if (iosPlugin != null) {
       return await iosPlugin.requestPermissions(
             alert: true,
@@ -57,7 +59,6 @@ class NotificationService {
           ) ??
           false;
     }
-
     return false;
   }
 
@@ -67,25 +68,23 @@ class NotificationService {
     required String body,
     String? payload,
   }) async {
-    const androidDetails = AndroidNotificationDetails(
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
       'health_tracker_channel',
       'Health Tracker Notifications',
       channelDescription: 'Notifications for health tracking reminders',
       importance: Importance.high,
       priority: Priority.high,
     );
-
-    const iosDetails = DarwinNotificationDetails(
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
     );
-
-    const notificationDetails = NotificationDetails(
+    const NotificationDetails notificationDetails = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
-
     await _notifications.show(
       id,
       title,
@@ -101,26 +100,25 @@ class NotificationService {
     required String body,
     required DateTime scheduledTime,
     String? payload,
+    bool daily = false,
   }) async {
-    const androidDetails = AndroidNotificationDetails(
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
       'health_tracker_channel',
       'Health Tracker Notifications',
       channelDescription: 'Notifications for health tracking reminders',
       importance: Importance.high,
       priority: Priority.high,
     );
-
-    const iosDetails = DarwinNotificationDetails(
+    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
     );
-
-    const notificationDetails = NotificationDetails(
+    const NotificationDetails notificationDetails = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
-
     await _notifications.zonedSchedule(
       id,
       title,
@@ -128,8 +126,57 @@ class NotificationService {
       tz.TZDateTime.from(scheduledTime, tz.local),
       notificationDetails,
       payload: payload,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: daily ? DateTimeComponents.time : null,
+    );
+  }
+
+  static Future<void> scheduleDailyActivityNotification({
+    required int id,
+    required String title,
+    required String body,
+    required TimeOfDay scheduledTime,
+    String? payload,
+  }) async {
+    final now = tz.TZDateTime.now(tz.local);
+    tz.TZDateTime scheduledDate = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      scheduledTime.hour,
+      scheduledTime.minute,
+    );
+
+    // If the scheduled time is in the past for today, schedule it for tomorrow.
+    if (scheduledDate.isBefore(now)) {
+      scheduledDate = scheduledDate.add(const Duration(days: 1));
+    }
+
+    await scheduleNotification(
+      id: id,
+      title: title,
+      body: body,
+      scheduledTime: scheduledDate,
+      payload: payload,
+      daily: true,
+    );
+  }
+
+  /// Schedules a one-time medication reminder for a specific date and time.
+  static Future<void> scheduleMedicationNotification({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime scheduledDateTime,
+    String? payload,
+  }) async {
+    await scheduleNotification(
+      id: id,
+      title: title,
+      body: body,
+      scheduledTime: scheduledDateTime,
+      payload: payload,
     );
   }
 

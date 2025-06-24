@@ -1,3 +1,24 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+    ext.kotlin_version = '1.9.22'
+    // Or whatever your current Kotlin version is. Ensure this matches your Flutter setup.
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // Replace '7.3.0' or '8.1.0' with the actual Android Gradle Plugin version you use.
+        // You can usually find this in an existing, working Flutter project's android/build.gradle
+        // or check the Flutter documentation for recommended versions.
+        classpath 'com.android.tools.build:gradle:8.1.4'
+        // Example: Use 8.1.0 or higher compatible with compileSdk 35
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        // Add if you are using Google services (e.g., Firebase)
+        // classpath 'com.google.gms:google-services:4.3.15' // Example version
+    }
+}
+
 allprojects {
     repositories {
         google()
@@ -5,6 +26,7 @@ allprojects {
     }
 }
 
+// These lines are fine for setting up build directories and clean task
 rootProject.buildDir = "../build"
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"

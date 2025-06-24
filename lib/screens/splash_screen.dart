@@ -3,6 +3,7 @@ import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/user_provider.dart';
+import '../services/notification_service.dart'; // Import your NotificationService
 import 'home_screen.dart';
 import 'user_profile_screen.dart';
 
@@ -52,14 +53,35 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _initializeApp() async {
-    // Wait for providers to initialize
+    // Wait for initial providers to load (e.g., UserProvider)
     await Future.delayed(const Duration(milliseconds: 500));
 
     if (mounted) {
       final userProvider = Provider.of<UserProvider>(context, listen: false);
       await userProvider.loadUsers();
 
-      // Wait for animation to complete
+      // IMPORTANT: Initialize and request notification permissions here
+      // This ensures notifications are ready before the user interacts with the app
+      await NotificationService.initialize();
+      bool permissionsGranted = await NotificationService.requestPermissions();
+
+      // Optionally, show a message if permissions were not granted
+      if (!permissionsGranted && mounted) {
+        // This is a good place to inform the user if critical permissions are missing
+        // For example, show a SnackBar or a simple dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Please grant notification and alarm permissions for reminders to work.'),
+            duration: Duration(seconds: 5),
+          ),
+        );
+        // Consider directing them to settings if they deny critical permissions
+        // Or at least letting them know it might impact functionality
+      }
+
+      // Wait for animation to complete (and give time for potential permission prompts)
+      // Adjust this duration as needed, especially if permission prompts take time
       await Future.delayed(const Duration(seconds: 3));
 
       if (mounted) {

@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../models/medication_model.dart';
 import '../providers/medication_provider.dart';
 import '../providers/user_provider.dart';
+import '../services/notification_service.dart';
 import '../widgets/empty_state_widget.dart';
 
 class MedicationScreen extends StatefulWidget {
@@ -23,6 +24,15 @@ class _MedicationScreenState extends State<MedicationScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(locals.medications),
+        actions: [
+          // >>> TEMPORARY BUTTON FOR DEBUGGING NOTIFICATIONS <<<
+          IconButton(
+            icon: const Icon(Icons.notifications),
+            onPressed: _testInstantNotification,
+            tooltip: 'Test Instant Notification',
+          ),
+          // >>> END TEMPORARY BUTTON <<<
+        ],
       ),
       body: Consumer<MedicationProvider>(
         builder: (context, provider, child) {
@@ -63,8 +73,20 @@ class _MedicationScreenState extends State<MedicationScreen> {
     );
   }
 
+  // >>> TEMPORARY DEBUGGING METHOD <<<
+  void _testInstantNotification() {
+    NotificationService.showInstantNotification(
+      id: 999, // A unique ID for the test notification
+      title: 'Instant Reminder Test',
+      body: 'This is an immediate notification from the app.',
+      payload: 'test_instant_notification',
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Attempted to show instant notification.')),
+    );
+  }
+
   Widget _buildSummaryCard(MedicationProvider provider) {
-    final locals = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final activeCount = provider.getActiveMedicationCount();
 
@@ -147,10 +169,10 @@ class _MedicationScreenState extends State<MedicationScreen> {
                         _showEditMedicationDialog(medication);
                         break;
                       case 'toggle':
-                        _toggleMedicationStatus(medication.id);
+                        _toggleMedicationStatus(medication);
                         break;
                       case 'delete':
-                        _deleteMedication(medication.id);
+                        _deleteMedication(medication);
                         break;
                     }
                   },
@@ -301,10 +323,6 @@ class _MedicationScreenState extends State<MedicationScreen> {
                       value: 'afterMeals',
                       child: Text(locals.afterMeals),
                     ),
-                    DropdownMenuItem(
-                      value: 'withMeals',
-                      child: Text(locals.withMeals),
-                    ),
                   ],
                   onChanged: (value) {
                     setState(() {
@@ -420,10 +438,14 @@ class _MedicationScreenState extends State<MedicationScreen> {
     if (userId == null) return;
 
     final provider = Provider.of<MedicationProvider>(context, listen: false);
+    Medication medicationToSave;
 
     try {
       if (existingMedication != null) {
-        final updatedMedication = existingMedication.copyWith(
+        // NEW: First, cancel all previous notifications for this medication
+        await _cancelMedicationNotifications(existingMedication);
+
+        medicationToSave = existingMedication.copyWith(
           name: name,
           dosage: dosage,
           frequency: frequency,
@@ -433,9 +455,9 @@ class _MedicationScreenState extends State<MedicationScreen> {
           endDate: endDate,
           notes: notes.isEmpty ? null : notes,
         );
-        await provider.updateMedication(updatedMedication);
+        await provider.updateMedication(medicationToSave);
       } else {
-        final newMedication = Medication(
+        medicationToSave = Medication(
           id: const Uuid().v4(),
           userId: userId,
           name: name,
@@ -448,7 +470,12 @@ class _MedicationScreenState extends State<MedicationScreen> {
           notes: notes.isEmpty ? null : notes,
           createdAt: DateTime.now(),
         );
-        await provider.addMedication(newMedication);
+        await provider.addMedication(medicationToSave);
+      }
+
+      // NEW: Schedule new notifications if the medication is active
+      if (medicationToSave.isActive) {
+        await _scheduleMedicationNotifications(medicationToSave);
       }
 
       if (mounted) {
@@ -464,16 +491,28 @@ class _MedicationScreenState extends State<MedicationScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('Error saving medication: $e')),
         );
       }
     }
   }
 
-  void _toggleMedicationStatus(String medicationId) async {
+  void _toggleMedicationStatus(Medication medication) async {
     try {
       final provider = Provider.of<MedicationProvider>(context, listen: false);
-      await provider.toggleMedicationStatus(medicationId);
+      await provider.toggleMedicationStatus(medication.id);
+
+      // NEW: Get the updated medication object to check its new status
+      final updatedMedication =
+          provider.medications.firstWhere((m) => m.id == medication.id);
+
+      if (updatedMedication.isActive) {
+        // If medication is now active, schedule notifications
+        await _scheduleMedicationNotifications(updatedMedication);
+      } else {
+        // If medication is now inactive, cancel notifications
+        await _cancelMedicationNotifications(updatedMedication);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -483,13 +522,13 @@ class _MedicationScreenState extends State<MedicationScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(content: Text('Error toggling status: $e')),
         );
       }
     }
   }
 
-  void _deleteMedication(String medicationId) async {
+  void _deleteMedication(Medication medication) async {
     final locals = AppLocalizations.of(context)!;
 
     final confirmed = await showDialog<bool>(
@@ -512,9 +551,12 @@ class _MedicationScreenState extends State<MedicationScreen> {
 
     if (confirmed == true) {
       try {
+        // NEW: First, cancel all notifications for this medication
+        await _cancelMedicationNotifications(medication);
+
         final provider =
             Provider.of<MedicationProvider>(context, listen: false);
-        await provider.deleteMedication(medicationId);
+        await provider.deleteMedication(medication.id);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -524,11 +566,50 @@ class _MedicationScreenState extends State<MedicationScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
+            SnackBar(content: Text('Error deleting medication: $e')),
           );
         }
       }
     }
+  }
+
+  // NEW: Helper method to schedule notifications for a medication
+  Future<void> _scheduleMedicationNotifications(Medication medication) async {
+    for (int i = 0; i < medication.reminderTimes.length; i++) {
+      final timeParts = medication.reminderTimes[i].split(':');
+      final time = TimeOfDay(
+        hour: int.parse(timeParts[0]),
+        minute: int.parse(timeParts[1]),
+      );
+
+      // Generate a unique integer ID from the medication's string ID and the reminder index
+      final notificationId = _generateNotificationId(medication.id, i);
+
+      await NotificationService.scheduleDailyActivityNotification(
+        id: notificationId,
+        title: 'Medication Reminder: ${medication.name}',
+        body: 'Time to take your ${medication.dosage}.',
+        scheduledTime: time,
+        payload: 'medications/${medication.id}',
+      );
+    }
+  }
+
+  // NEW: Helper method to cancel notifications for a medication
+  Future<void> _cancelMedicationNotifications(Medication medication) async {
+    for (int i = 0; i < medication.reminderTimes.length; i++) {
+      final notificationId = _generateNotificationId(medication.id, i);
+      await NotificationService.cancelNotification(notificationId);
+    }
+  }
+
+  // NEW: Helper method to generate a unique integer ID for each notification.
+  int _generateNotificationId(String medicationId, int reminderIndex) {
+    // A simple hash function to convert the string ID to an integer.
+    // We add the reminderIndex to ensure each time has a unique ID within the same medication.
+    // The bitwise operations and substring are used to get a more distributed hash code.
+    final medIdHash = medicationId.hashCode;
+    return (medIdHash + reminderIndex) & 0x7FFFFFFF; // Ensure positive integer
   }
 
   String _getFrequencyText(String frequency, AppLocalizations locals) {

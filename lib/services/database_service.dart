@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/material.dart'; // Import for debugPrint
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -30,7 +31,7 @@ class DatabaseService {
     final path = join(databasesPath, 'health_tracker.db');
     return await openDatabase(
       path,
-      version: 3, // <--- INCREMENTED DATABASE VERSION TO 3
+      version: 3, // <--- DATABASE VERSION
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -130,35 +131,44 @@ class DatabaseService {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Handle database upgrades here
-    // Example: Upgrade from version 2 to 3
     if (oldVersion < 3) {
-      // Add the new column 'has_diabetes' to the 'users' table
-      // It's good practice to provide a default value for existing rows, e.g., 0 for false.
       await db.execute(
           'ALTER TABLE users ADD COLUMN has_diabetes INTEGER DEFAULT 0;');
-      print('Database upgrade: Added has_diabetes column to users table.');
+      debugPrint('Database upgrade: Added has_diabetes column to users table.');
 
-      // Add the new column 'category' to the 'blood_sugar' table
       await db.execute(
           'ALTER TABLE blood_sugar ADD COLUMN category TEXT DEFAULT "unknown";');
-      print('Database upgrade: Added category column to blood_sugar table.');
+      debugPrint(
+          'Database upgrade: Added category column to blood_sugar table.');
     }
-    // Add other migration logic for future versions if oldVersion < 4, etc.
-    // For example, if you had a version 1 and needed to upgrade to version 2 (photo_path)
-    // and then to version 3 (has_diabetes, category), the logic would look like:
-    // if (oldVersion < 2) {
-    //   await db.execute('ALTER TABLE users ADD COLUMN photo_path TEXT;');
-    //   print('Database upgrade: Added photo_path column to users table.');
-    // }
-    // if (oldVersion < 3) {
-    //   await db.execute('ALTER TABLE users ADD COLUMN has_diabetes INTEGER DEFAULT 0;');
-    //   await db.execute('ALTER TABLE blood_sugar ADD COLUMN category TEXT DEFAULT "unknown";');
-    //   print('Database upgrade: Added has_diabetes and category columns.');
-    // }
   }
 
-// User CRUD operations
+  Future<bool> hasBloodPressureData(String userId) async {
+    final db = await database;
+    final count = Sqflite.firstIntValue(await db.rawQuery(
+      'SELECT COUNT(*) FROM blood_pressure WHERE user_id = ?',
+      [userId],
+    ));
+    return (count ?? 0) > 0;
+  }
+
+  Future<bool> hasBloodSugarData(String userId) async {
+    final db = await database;
+    final count = Sqflite.firstIntValue(await db.rawQuery(
+      'SELECT COUNT(*) FROM blood_sugar WHERE user_id = ?',
+      [userId],
+    ));
+    return (count ?? 0) > 0;
+  }
+
+  Future<bool> hasDailyActivityData(String userId) async {
+    final db = await database;
+    final count = Sqflite.firstIntValue(await db.rawQuery(
+      'SELECT COUNT(*) FROM activities WHERE user_id = ?',
+      [userId],
+    ));
+    return (count ?? 0) > 0;
+  }
 
   Future<int> insertUser(User user) async {
     final db = await database;
@@ -189,16 +199,8 @@ class DatabaseService {
 
   Future<int> updateUser(User user) async {
     final db = await database;
-    // Get the existing user to check if a photo path was present
     final existingUser = await getUser(user.id);
     final String? oldPhotoPath = existingUser?.photoPath;
-
-    print('Debug: updateUser - User ID: ${user.id}');
-    print('Debug: updateUser - Old Photo Path: $oldPhotoPath');
-    print(
-        'DEBUG: updateUser - New Photo Path (from User object): ${user.photoPath}');
-    print(
-        'DEBUG: updateUser - has_diabetes (from User object): ${user.hasDiabetes}');
 
     // Perform the update
     final int rowsAffected = await db.update(
@@ -207,39 +209,23 @@ class DatabaseService {
       where: 'id = ?',
       whereArgs: [user.id],
     );
-    print('DEBUG: updateUser - Rows Affected: $rowsAffected');
-    // If the update was successful and a photo path existed previously
-    // and the new photoPath is null or different, delete the old file
+
     if (rowsAffected > 0 && oldPhotoPath != null && oldPhotoPath.isNotEmpty) {
-      // Check if the new photoPath is null or different from the old one
       if (user.photoPath == null ||
           user.photoPath!.isEmpty ||
           user.photoPath != oldPhotoPath) {
         final file = File(oldPhotoPath);
-        print('DEBUG: updateUser- Attempting to delete old file: ${file.path}');
         if (await file.exists()) {
           try {
             await file.delete();
-            print('Deleted old photo file: $oldPhotoPath');
+            debugPrint('Deleted old photo file: $oldPhotoPath');
           } catch (e) {
-            print('Error deleting old photo file: $oldPhotoPath - $e');
+            debugPrint('Error deleting old photo file: $oldPhotoPath - $e');
           }
         } else {
-          print(
-              'DEBUG: Old photo file not found at path: $oldPhotoPath (perhaps already deleted or path was wrong?)');
+          debugPrint('Old photo file not found at path: $oldPhotoPath');
         }
-      } else {
-        print(
-            'DEBUG: updateUser - New photo path is same as old, not deleting old file.');
       }
-    } else if (rowsAffected > 0 &&
-        (oldPhotoPath == null || oldPhotoPath.isEmpty) &&
-        user.photoPath != null &&
-        user.photoPath!.isNotEmpty) {
-      print('DEBUG: updateUser - Adding new photo, no old photo to delete.');
-    } else {
-      print(
-          'DEBUG: updateUser - No photo change or update failed (rowsAffected=0).');
     }
     return rowsAffected;
   }
@@ -260,8 +246,6 @@ class DatabaseService {
     );
   }
 
-// Blood Pressure CRUD operations
-
   Future<int> insertBloodPressure(BloodPressure bloodPressure) async {
     final db = await database;
     return await db.insert('blood_pressure', bloodPressure.toMap());
@@ -276,6 +260,19 @@ class DatabaseService {
       orderBy: 'date_time DESC',
     );
     return List.generate(maps.length, (i) => BloodPressure.fromMap(maps[i]));
+  }
+
+  Future<List<Map<String, dynamic>>> getBloodPressureDataForExport(
+      String? userId) async {
+    if (userId == null) return [];
+    final db = await database;
+    return await db.query(
+      'blood_pressure',
+      columns: ['date_time', 'systolic', 'diastolic', 'notes'],
+      where: 'user_id = ?',
+      whereArgs: [userId],
+      orderBy: 'date_time ASC', // Order chronologically for reports
+    );
   }
 
   Future<BloodPressure?> getBloodPressure(String id) async {
@@ -310,11 +307,8 @@ class DatabaseService {
     );
   }
 
-// Blood Sugar CRUD operations
-
   Future<int> insertBloodSugar(BloodSugar bloodSugar) async {
     final db = await database;
-    // bloodSugar.toMap() now includes the 'category' field
     return await db.insert('blood_sugar', bloodSugar.toMap());
   }
 
@@ -327,6 +321,26 @@ class DatabaseService {
       orderBy: 'date_time DESC',
     );
     return List.generate(maps.length, (i) => BloodSugar.fromMap(maps[i]));
+  }
+
+  Future<List<Map<String, dynamic>>> getBloodSugarDataForExport(
+      String? userId) async {
+    // Changed to String?
+    if (userId == null) return [];
+    final db = await database;
+    return await db.query(
+      'blood_sugar',
+      columns: [
+        'date_time',
+        'glucose',
+        'measurement_type',
+        'category',
+        'notes'
+      ],
+      where: 'user_id = ?',
+      whereArgs: [userId],
+      orderBy: 'date_time ASC',
+    );
   }
 
   Future<BloodSugar?> getBloodSugar(String id) async {
@@ -344,7 +358,6 @@ class DatabaseService {
 
   Future<int> updateBloodSugar(BloodSugar bloodSugar) async {
     final db = await database;
-    // bloodSugar.toMap() now includes the 'category' field
     return await db.update(
       'blood_sugar',
       bloodSugar.toMap(),
@@ -362,8 +375,6 @@ class DatabaseService {
     );
   }
 
-// Activity CRUD operations
-
   Future<int> insertActivity(Activity activity) async {
     final db = await database;
     return await db.insert('activities', activity.toMap());
@@ -378,6 +389,28 @@ class DatabaseService {
       orderBy: 'created_at DESC',
     );
     return List.generate(maps.length, (i) => Activity.fromMap(maps[i]));
+  }
+
+  Future<List<Map<String, dynamic>>> getDailyActivityDataForExport(
+      String? userId) async {
+    // Changed to String?
+    if (userId == null) return [];
+    final db = await database;
+    return await db.query(
+      'activities',
+      columns: [
+        'date',
+        'type',
+        'steps',
+        'calories',
+        'distance',
+        'duration',
+        'notes'
+      ],
+      where: 'user_id = ?',
+      whereArgs: [userId],
+      orderBy: 'date ASC',
+    );
   }
 
   Future<Activity?> getActivity(String id) async {
@@ -411,8 +444,6 @@ class DatabaseService {
       whereArgs: [id],
     );
   }
-
-// Medication CRUD operations
 
   Future<int> insertMedication(Medication medication) async {
     final db = await database;
@@ -464,8 +495,6 @@ class DatabaseService {
       whereArgs: [id],
     );
   }
-
-// Utility methods
 
   Future<List<BloodPressure>> getBloodPressureReadingsInDateRange(
     String userId,

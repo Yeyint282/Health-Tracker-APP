@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../providers/setting_porvider.dart';
 import '../providers/user_provider.dart';
 import '../services/database_service.dart';
+import '../services/pdf_export_data_services.dart'; // Import the file containing ExportTimeRange enum
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -14,10 +15,55 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  bool _hasHealthData = false;
+  String? _lastCheckedUserId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkIfUserHasData();
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final currentUserId = userProvider.selectedUser?.id;
+
+    if (currentUserId != _lastCheckedUserId) {
+      _checkIfUserHasData();
+      _lastCheckedUserId = currentUserId;
+    }
+  }
+
+  Future<void> _checkIfUserHasData() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final selectedUser = userProvider.selectedUser;
+
+    if (selectedUser == null) {
+      setState(() {
+        _hasHealthData = false;
+      });
+      return;
+    }
+
+    final dbService = DatabaseService.instance;
+    final hasBP = await dbService.hasBloodPressureData(selectedUser.id);
+    final hasBS = await dbService.hasBloodSugarData(selectedUser.id);
+    final hasDA = await dbService.hasDailyActivityData(selectedUser.id);
+
+    if (mounted) {
+      setState(() {
+        _hasHealthData = hasBP || hasBS || hasDA;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final locals = AppLocalizations.of(context)!;
-
     return Scaffold(
       appBar: AppBar(
         title: Text(locals.settingsTitle),
@@ -143,6 +189,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildDataSection(AppLocalizations locals) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -151,14 +199,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Text(
               'Data Management',
-              style: Theme.of(context).textTheme.titleMedium,
+              style: textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
             ListTile(
-              title: const Text('Export Data'),
-              subtitle: const Text('Export your health data'),
-              leading: const Icon(Icons.download),
-              onTap: _exportData,
+              title: Text(
+                'Export Data',
+                style: _hasHealthData // Apply style based on data availability
+                    ? textTheme.bodyLarge // Enabled style
+                    : textTheme.bodyLarge?.copyWith(
+                        color: colorScheme.onSurface
+                            .withOpacity(0.38)), // Disabled style
+              ),
+              subtitle: Text(
+                'Export your health data as PDF',
+                style: _hasHealthData
+                    ? textTheme.bodySmall
+                    : textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurface.withOpacity(0.38)),
+              ),
+              leading: Icon(
+                Icons.download,
+                color: _hasHealthData
+                    ? colorScheme.onSurface
+                    : colorScheme.onSurface.withOpacity(0.38),
+              ),
+              onTap: _hasHealthData ? _showExportOptionsDialog : null,
             ),
             ListTile(
               title: const Text('Clear All Data'),
@@ -205,16 +271,116 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _exportData() {
-    // TODO: Implement data export
+  void _showExportOptionsDialog() {
+    final locals = AppLocalizations.of(context)!;
+    showDialog<ExportTimeRange>(
+      context: context,
+      builder: (BuildContext context) {
+        return SimpleDialog(
+          title: Text(locals.selectExportRange ?? 'Select Export Range'),
+          children: <Widget>[
+            SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(context, ExportTimeRange.oneWeek);
+              },
+              child: const Text('Last 1 Week'),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(context, ExportTimeRange.twoWeeks);
+              },
+              child: const Text('Last 2 Weeks'),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(context, ExportTimeRange.threeWeeks);
+              },
+              child: const Text('Last 3 Weeks'),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(context, ExportTimeRange.oneMonth);
+              },
+              child: const Text('Last 1 Month'),
+            ),
+            SimpleDialogOption(
+              onPressed: () {
+                Navigator.pop(context, ExportTimeRange.all);
+              },
+              child: const Text('All Records'),
+            ),
+          ],
+        );
+      },
+    ).then((ExportTimeRange? selectedRange) {
+      if (selectedRange != null) {
+        _performExport(selectedRange);
+      }
+    });
+  }
+
+  void _performExport(ExportTimeRange timeRange) async {
+    final locals = AppLocalizations.of(context)!;
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final selectedUser = userProvider.selectedUser;
+    if (selectedUser == null || !_hasHealthData) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(selectedUser == null
+                ? locals.selectUserToExportData
+                : locals.noDataToExport ??
+                    'No health data available for export.'),
+          ),
+        );
+      }
+      return;
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Export feature coming soon')),
+      SnackBar(
+        content: Text(locals.exportingData),
+      ),
     );
+
+    try {
+      final dbService = DatabaseService.instance;
+      final pdfExportService = PdfExportService();
+
+      // Fetch all data for the selected user (filtering by time range happens inside PdfExportService)
+      final bloodPressureData =
+          await dbService.getBloodPressureDataForExport(selectedUser.id);
+      final bloodSugarData =
+          await dbService.getBloodSugarDataForExport(selectedUser.id);
+      final dailyActivityData =
+          await dbService.getDailyActivityDataForExport(selectedUser.id);
+
+      await pdfExportService.exportHealthDataToPdf(
+        bloodPressureData: bloodPressureData,
+        bloodSugarData: bloodSugarData,
+        dailyActivityData: dailyActivityData,
+        userName: selectedUser.name,
+        timeRange: timeRange,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(locals.healthDataExportedSuccessfully)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${locals.errorExportingData}: $e'),
+          ),
+        );
+      }
+    }
   }
 
   void _showClearDataDialog() {
     final locals = AppLocalizations.of(context)!;
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -252,6 +418,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         Provider.of<UserProvider>(context, listen: false).clearSelectedUser();
         Provider.of<SettingsProvider>(context, listen: false).resetSettings();
+        // Re-check data after clearing all data
+        _checkIfUserHasData();
       }
 
       if (mounted) {
@@ -259,7 +427,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SnackBar(content: Text('All data cleared successfully')),
         );
 
-        // Navigate back to setup
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
