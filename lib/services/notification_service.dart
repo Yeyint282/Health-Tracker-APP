@@ -11,9 +11,7 @@ class NotificationService {
 
   static Future<void> initialize() async {
     if (_initialized) return;
-
-    tz.initializeTimeZones(); // ✅ Load full timezone data
-
+    tz.initializeTimeZones();
     String? deviceTimeZoneName;
     try {
       deviceTimeZoneName = await FlutterTimezone.getLocalTimezone();
@@ -49,7 +47,7 @@ class NotificationService {
     }
 
     const AndroidInitializationSettings androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@mipmap/launcher_icon');
     const DarwinInitializationSettings iosSettings =
         DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -76,7 +74,6 @@ class NotificationService {
       debugPrint(
           'NotificationService: Notification tapped with payload: ${response.payload}');
     }
-    // You can handle navigation or logic based on payload here.
   }
 
   static Future<bool> requestPermissions() async {
@@ -99,7 +96,6 @@ class NotificationService {
         debugPrint('NotificationService: iOS permission not granted.');
       return granted;
     }
-
     return false;
   }
 
@@ -116,18 +112,15 @@ class NotificationService {
       importance: Importance.high,
       priority: Priority.high,
     );
-
     const iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
     );
-
     const notificationDetails = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
     );
-
     await _notifications.show(id, title, body, notificationDetails,
         payload: payload);
     debugPrint('NotificationService: Instant notification shown (ID: $id)');
@@ -148,13 +141,11 @@ class NotificationService {
       importance: Importance.high,
       priority: Priority.high,
     );
-
     const iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
     );
-
     const notificationDetails = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
