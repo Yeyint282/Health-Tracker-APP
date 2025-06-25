@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:timezone/timezone.dart' as tz;
 import 'package:uuid/uuid.dart';
 
 import '../models/medication_model.dart';
@@ -25,13 +26,22 @@ class _MedicationScreenState extends State<MedicationScreen> {
       appBar: AppBar(
         title: Text(locals.medications),
         actions: [
-          // >>> TEMPORARY BUTTON FOR DEBUGGING NOTIFICATIONS <<<
+          // >>> TEMPORARY BUTTONS FOR DEBUGGING NOTIFICATIONS <<<
+          // These buttons are useful for testing notification functionality
+          // but can be removed once development is complete.
           IconButton(
             icon: const Icon(Icons.notifications),
             onPressed: _testInstantNotification,
             tooltip: 'Test Instant Notification',
           ),
-          // >>> END TEMPORARY BUTTON <<<
+          IconButton(
+            onPressed: _testScheduledNotification,
+            icon: const Icon(
+              Icons.alarm_add,
+            ),
+            tooltip: 'Test Scheduled Notification',
+          ),
+          // >>> END TEMPORARY BUTTONS <<<
         ],
       ),
       body: Consumer<MedicationProvider>(
@@ -73,7 +83,7 @@ class _MedicationScreenState extends State<MedicationScreen> {
     );
   }
 
-  // >>> TEMPORARY DEBUGGING METHOD <<<
+  /// Displays an instant notification for testing purposes.
   void _testInstantNotification() {
     NotificationService.showInstantNotification(
       id: 999, // A unique ID for the test notification
@@ -86,6 +96,41 @@ class _MedicationScreenState extends State<MedicationScreen> {
     );
   }
 
+  /// Schedules a test notification for 2 minutes from the current time.
+  /// Logs the scheduled time and pending notifications for debugging.
+  void _testScheduledNotification() async {
+    // Get current time in the local timezone (already set by NotificationService)
+    final now = tz.TZDateTime.now(tz.local);
+    // Schedule for 2 minutes from now, ensuring it's in the local timezone
+    final scheduledTime = now.add(const Duration(minutes: 2));
+
+    debugPrint('Test Scheduled: Attempting to schedule for $scheduledTime');
+
+    await NotificationService.scheduleNotification(
+      id: 12345,
+      // A unique ID for the test notification
+      title: 'Test Scheduled Reminder',
+      body: 'This is a test scheduled notification from the app.',
+      scheduledTime: scheduledTime,
+      payload: 'test_scheduled',
+      daily: false, // Make it a one-time notification for easier testing
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+          content: Text('Attempted to schedule test notification in 2 mins.')),
+    );
+
+    // Also check pending notifications immediately after scheduling
+    final pending = await NotificationService.getPendingNotifications();
+    debugPrint(
+        'Test Scheduled: Currently ${pending.length} pending notifications.');
+    for (var p in pending) {
+      debugPrint('  Pending Test: ID=${p.id}, Title=${p.title}');
+    }
+  }
+
+  /// Builds a summary card displaying the count of active medications.
   Widget _buildSummaryCard(MedicationProvider provider) {
     final theme = Theme.of(context);
     final activeCount = provider.getActiveMedicationCount();
@@ -125,6 +170,7 @@ class _MedicationScreenState extends State<MedicationScreen> {
     );
   }
 
+  /// Builds an individual card for a medication, displaying its details.
   Widget _buildMedicationCard(Medication medication) {
     final theme = Theme.of(context);
     final locals = AppLocalizations.of(context)!;
@@ -228,14 +274,17 @@ class _MedicationScreenState extends State<MedicationScreen> {
     );
   }
 
+  /// Shows a dialog for adding a new medication.
   void _showAddMedicationDialog() {
     _showMedicationDialog();
   }
 
+  /// Shows a dialog for editing an existing medication.
   void _showEditMedicationDialog(Medication medication) {
     _showMedicationDialog(medication: medication);
   }
 
+  /// Generic method to show the medication add/edit dialog.
   void _showMedicationDialog({Medication? medication}) {
     final locals = AppLocalizations.of(context)!;
     final nameController = TextEditingController(text: medication?.name ?? '');
@@ -299,7 +348,7 @@ class _MedicationScreenState extends State<MedicationScreen> {
                   onChanged: (value) {
                     setState(() {
                       frequency = value!;
-                      // Reset reminder times when frequency changes
+                      // Reset reminder times when frequency changes if it makes sense for the app's logic
                       reminderTimes.clear();
                     });
                   },
@@ -395,6 +444,7 @@ class _MedicationScreenState extends State<MedicationScreen> {
     );
   }
 
+  /// Shows a time picker and adds the selected time to the reminderTimes list.
   void _addReminderTime(
       StateSetter setState, List<String> reminderTimes) async {
     final time = await showTimePicker(
@@ -403,17 +453,19 @@ class _MedicationScreenState extends State<MedicationScreen> {
     );
 
     if (time != null) {
+      // Format time as HH:MM string (e.g., "09:00")
       final timeString =
           '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
       setState(() {
         if (!reminderTimes.contains(timeString)) {
           reminderTimes.add(timeString);
-          reminderTimes.sort();
+          reminderTimes.sort(); // Keep times sorted for consistent display
         }
       });
     }
   }
 
+  /// Saves or updates a medication and schedules/cancels associated notifications.
   void _saveMedication(
     Medication? existingMedication,
     String name,
@@ -435,14 +487,18 @@ class _MedicationScreenState extends State<MedicationScreen> {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final userId = userProvider.selectedUser?.id;
 
-    if (userId == null) return;
+    if (userId == null) {
+      // Handle case where user ID is not available (e.g., not logged in)
+      debugPrint('Error: User ID is null. Cannot save medication.');
+      return;
+    }
 
     final provider = Provider.of<MedicationProvider>(context, listen: false);
     Medication medicationToSave;
 
     try {
       if (existingMedication != null) {
-        // NEW: First, cancel all previous notifications for this medication
+        // If updating an existing medication, cancel its old notifications first
         await _cancelMedicationNotifications(existingMedication);
 
         medicationToSave = existingMedication.copyWith(
@@ -457,8 +513,10 @@ class _MedicationScreenState extends State<MedicationScreen> {
         );
         await provider.updateMedication(medicationToSave);
       } else {
+        // If adding a new medication
         medicationToSave = Medication(
           id: const Uuid().v4(),
+          // Generate a new unique ID
           userId: userId,
           name: name,
           dosage: dosage,
@@ -468,18 +526,18 @@ class _MedicationScreenState extends State<MedicationScreen> {
           startDate: startDate,
           endDate: endDate,
           notes: notes.isEmpty ? null : notes,
-          createdAt: DateTime.now(),
+          createdAt: DateTime.now(), // Set creation timestamp
         );
         await provider.addMedication(medicationToSave);
       }
 
-      // NEW: Schedule new notifications if the medication is active
+      // Schedule new notifications if the medication is active
       if (medicationToSave.isActive) {
         await _scheduleMedicationNotifications(medicationToSave);
       }
 
       if (mounted) {
-        Navigator.pop(context);
+        Navigator.pop(context); // Close the dialog
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(existingMedication != null
@@ -497,12 +555,13 @@ class _MedicationScreenState extends State<MedicationScreen> {
     }
   }
 
+  /// Toggles the active status of a medication and manages its notifications.
   void _toggleMedicationStatus(Medication medication) async {
     try {
       final provider = Provider.of<MedicationProvider>(context, listen: false);
       await provider.toggleMedicationStatus(medication.id);
 
-      // NEW: Get the updated medication object to check its new status
+      // Get the updated medication object to check its new status
       final updatedMedication =
           provider.medications.firstWhere((m) => m.id == medication.id);
 
@@ -528,6 +587,7 @@ class _MedicationScreenState extends State<MedicationScreen> {
     }
   }
 
+  /// Deletes a medication after user confirmation and cancels its notifications.
   void _deleteMedication(Medication medication) async {
     final locals = AppLocalizations.of(context)!;
 
@@ -551,7 +611,7 @@ class _MedicationScreenState extends State<MedicationScreen> {
 
     if (confirmed == true) {
       try {
-        // NEW: First, cancel all notifications for this medication
+        // Cancel all notifications for this medication before deleting
         await _cancelMedicationNotifications(medication);
 
         final provider =
@@ -573,7 +633,8 @@ class _MedicationScreenState extends State<MedicationScreen> {
     }
   }
 
-  // NEW: Helper method to schedule notifications for a medication
+  /// Helper method to schedule notifications for all reminder times of a medication.
+  /// It generates a unique ID for each notification.
   Future<void> _scheduleMedicationNotifications(Medication medication) async {
     for (int i = 0; i < medication.reminderTimes.length; i++) {
       final timeParts = medication.reminderTimes[i].split(':');
@@ -582,7 +643,8 @@ class _MedicationScreenState extends State<MedicationScreen> {
         minute: int.parse(timeParts[1]),
       );
 
-      // Generate a unique integer ID from the medication's string ID and the reminder index
+      // Generate a unique integer ID from the medication's string ID and the reminder index.
+      // This ensures unique IDs for each specific reminder of each medication.
       final notificationId = _generateNotificationId(medication.id, i);
 
       await NotificationService.scheduleDailyActivityNotification(
@@ -590,28 +652,44 @@ class _MedicationScreenState extends State<MedicationScreen> {
         title: 'Medication Reminder: ${medication.name}',
         body: 'Time to take your ${medication.dosage}.',
         scheduledTime: time,
+        // TimeOfDay is passed to NotificationService
         payload: 'medications/${medication.id}',
       );
+      debugPrint(
+          'MedicationScreen: Requested notification for ${medication.name} (ID: $notificationId) at ${time.format(context)}');
+    }
+    // Log all pending notifications after scheduling for verification
+    final pendingNotifications =
+        await NotificationService.getPendingNotifications();
+    debugPrint(
+        'MedicationScreen: Currently ${pendingNotifications.length} pending notifications.');
+    for (var pending in pendingNotifications) {
+      debugPrint(
+          '  Pending: ID=${pending.id}, Title=${pending.title}, Payload=${pending.payload}');
     }
   }
 
-  // NEW: Helper method to cancel notifications for a medication
+  /// Helper method to cancel all notifications associated with a medication.
+  /// It reconstructs the unique IDs to ensure all relevant notifications are cancelled.
   Future<void> _cancelMedicationNotifications(Medication medication) async {
     for (int i = 0; i < medication.reminderTimes.length; i++) {
       final notificationId = _generateNotificationId(medication.id, i);
       await NotificationService.cancelNotification(notificationId);
+      debugPrint(
+          'MedicationScreen: Cancelled notification for ${medication.name} (ID: $notificationId)');
     }
   }
 
-  // NEW: Helper method to generate a unique integer ID for each notification.
+  /// Generates a unique integer ID for a notification based on medication ID and reminder index.
+  /// Uses the hash code of the medication ID to ensure uniqueness across different medications.
   int _generateNotificationId(String medicationId, int reminderIndex) {
-    // A simple hash function to convert the string ID to an integer.
-    // We add the reminderIndex to ensure each time has a unique ID within the same medication.
-    // The bitwise operations and substring are used to get a more distributed hash code.
     final medIdHash = medicationId.hashCode;
-    return (medIdHash + reminderIndex) & 0x7FFFFFFF; // Ensure positive integer
+    // Combine hash code with reminder index to get a unique ID.
+    // & 0x7FFFFFFF ensures the ID is a positive 32-bit integer, suitable for notification IDs.
+    return (medIdHash + reminderIndex) & 0x7FFFFFFF;
   }
 
+  /// Helper to get localized frequency text.
   String _getFrequencyText(String frequency, AppLocalizations locals) {
     switch (frequency) {
       case 'onceDaily':
@@ -627,13 +705,14 @@ class _MedicationScreenState extends State<MedicationScreen> {
     }
   }
 
+  /// Helper to get localized instructions text.
   String _getInstructionsText(String instructions, AppLocalizations locals) {
     switch (instructions) {
       case 'beforeMeals':
         return locals.beforeMeals;
       case 'afterMeals':
         return locals.afterMeals;
-      case 'withMeals':
+      case 'withMeals': // Assuming 'withMeals' might be added later or is supported
         return locals.withMeals;
       default:
         return instructions;

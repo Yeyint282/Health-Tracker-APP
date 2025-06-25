@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:health_life/providers/setting_porvider.dart';
 import 'package:health_life/services/notification_service.dart';
 import 'package:provider/provider.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
 
 import 'providers/activity_provider.dart';
 import 'providers/blood_pressure_provider.dart';
@@ -16,14 +17,14 @@ import 'services/database_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  tz.initializeTimeZones();
   await NotificationService.initialize();
-  await DatabaseService.instance.database;
   await NotificationService.requestPermissions();
+  await DatabaseService.instance.database;
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-
   runApp(
     const DigitalHealthTrackerApp(),
   );
@@ -73,7 +74,7 @@ class DigitalHealthTrackerApp extends StatelessWidget {
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF4CAF50),
+        seedColor: const Color(0xFF4CAF50), // Green for health
         brightness: Brightness.light,
       ),
       appBarTheme: const AppBarTheme(
@@ -110,13 +111,14 @@ class DigitalHealthTrackerApp extends StatelessWidget {
     return ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF4CAF50),
+        seedColor: const Color(0xFF4CAF50), // Green for health
         brightness: Brightness.dark,
       ),
       appBarTheme: const AppBarTheme(
         centerTitle: true,
         elevation: 0,
-        systemOverlayStyle: SystemUiOverlayStyle.light,
+        systemOverlayStyle:
+            SystemUiOverlayStyle.light, // Light icons on dark app bar
       ),
       cardTheme: CardTheme(
         elevation: 3,
