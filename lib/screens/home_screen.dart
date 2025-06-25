@@ -11,12 +11,17 @@ import '../providers/blood_pressure_provider.dart';
 import '../providers/blood_sugar_provider.dart';
 import '../providers/medication_provider.dart';
 import '../providers/user_provider.dart';
+import '../services/notification_service.dart'; // Import NotificationService
 import '../widgets/health_metric_card_widget.dart';
 import 'activity_screen.dart';
 import 'blood_pressure_screen.dart';
 import 'blood_sugar_screen.dart';
 import 'medication_screen.dart';
 import 'settings_screen.dart';
+
+// Unique IDs for the new fixed daily reminders
+const int GOOD_MORNING_REMINDER_ID = 200;
+const int GOOD_NIGHT_REMINDER_ID = 201;
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -35,9 +40,12 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeProviders();
+      _scheduleDailyFixedReminders(); // Schedule the fixed daily reminders
     });
   }
 
+  /// Initializes all health metric providers with the selected user's ID
+  /// and then refreshes their data.
   void _initializeProviders() {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final selectedUser = userProvider.selectedUser;
@@ -50,7 +58,41 @@ class _HomeScreenState extends State<HomeScreen> {
           .setUserId(selectedUser.id);
       Provider.of<MedicationProvider>(context, listen: false)
           .setUserId(selectedUser.id);
-      _refreshData();
+      _refreshData(); // Load initial data for selected user
+    }
+  }
+
+  /// Schedules fixed daily notifications for "Good Morning!" and "Good Night!".
+  /// These are not conditional on user activity, unlike the specific activity reminders.
+  Future<void> _scheduleDailyFixedReminders() async {
+    // Schedule "Good Morning!" at 8:00 AM Myanmar Time
+    await NotificationService.scheduleDailyActivityNotification(
+      id: GOOD_MORNING_REMINDER_ID,
+      title: 'Good Morning!',
+      body: 'Start your day with a nutritious breakfast',
+      scheduledTime: const TimeOfDay(hour: 8, minute: 0),
+      // 8:00 AM
+      payload: 'good_morning_reminder',
+    );
+    debugPrint('HomeScreen: Scheduled Good Morning reminder for 8:00 AM.');
+
+    // Schedule "Good Night!" at 11:00 PM Myanmar Time
+    await NotificationService.scheduleDailyActivityNotification(
+      id: GOOD_NIGHT_REMINDER_ID,
+      title: 'Good Night!',
+      body: 'Time to sleep',
+      scheduledTime: const TimeOfDay(hour: 23, minute: 0),
+      // 11:00 PM
+      payload: 'good_night_reminder',
+    );
+    debugPrint('HomeScreen: Scheduled Good Night reminder for 11:00 PM.');
+
+    // Optional: Log all pending notifications to verify
+    final pending = await NotificationService.getPendingNotifications();
+    debugPrint(
+        'HomeScreen: Total pending notifications after fixed reminders setup: ${pending.length}');
+    for (var p in pending) {
+      debugPrint('  Pending: ID=${p.id}, Title=${p.title}');
     }
   }
 
@@ -79,32 +121,38 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       child: Consumer<UserProvider>(
         builder: (context, userProvider, child) {
+          // If no users exist, navigate to the user profile creation screen.
           if (!userProvider.hasUsers) {
             return const UserProfileScreen(
               userToEdit: null,
               isDialog: false,
             );
           }
+          // If no user is selected or user selection is active, show user selection screen.
           if (userProvider.selectedUser == null || _isSelectingUser) {
             return _buildUserSelectionScreen();
           }
+          // Otherwise, show the main home content.
           return _buildHomeContent();
         },
       ),
     );
   }
 
+  /// Builds the user selection screen when multiple users are available.
   Widget _buildUserSelectionScreen() {
     final locals = AppLocalizations.of(context)!;
     final userProvider = Provider.of<UserProvider>(context);
-    final canGoBack = userProvider.selectedUser != null;
+    final canGoBack = userProvider.selectedUser !=
+        null; // True if a user was previously selected
+
     return Scaffold(
       appBar: AppBar(
         leading: canGoBack
             ? IconButton(
                 onPressed: () {
                   setState(() {
-                    _isSelectingUser = false;
+                    _isSelectingUser = false; // Exit user selection mode
                   });
                 },
                 icon: const Icon(Icons.arrow_back),
@@ -134,13 +182,6 @@ class _HomeScreenState extends State<HomeScreen> {
           return Card(
             margin: const EdgeInsets.symmetric(vertical: 8),
             elevation: 2,
-            // shape: RoundedRectangleBorder(
-            //   borderRadius: BorderRadius.circular(12),
-            //   side: isSelected
-            //       ? BorderSide(
-            //           color: Theme.of(context).colorScheme.primary, width: 2)
-            //       : BorderSide.none,
-            // ),
             child: ListTile(
               selected: isSelected,
               selectedTileColor:
@@ -172,11 +213,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 '${locals.age}: ${user.age}, ${locals.gender}: ${user.gender}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
-              trailing: isSelected ? Icon(Icons.check_circle) : null,
+              trailing: isSelected ? const Icon(Icons.check_circle) : null,
               onTap: () {
                 userProvider.selectUser(user);
-                _initializeProviders();
+                _initializeProviders(); // Re-initialize providers for the newly selected user
                 if (!canGoBack) {
+                  // If coming from an initial no-user state, exit selection
                   setState(() {
                     _isSelectingUser = false;
                   });
@@ -189,6 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Builds the main content of the home screen, displaying user greeting and health metrics.
   Widget _buildHomeContent() {
     final locals = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
@@ -206,6 +249,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Text(locals.homeTitle),
         backgroundColor: theme.colorScheme.surface,
         automaticallyImplyLeading: true,
+        // Show back button if applicable (e.g., after selecting user)
         actions: [
           IconButton(
             icon: const Icon(Icons.person),
@@ -235,16 +279,17 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _refreshData,
+        onRefresh: _refreshData, // Allows pulling down to refresh data
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
+          // Always allow scrolling even if content is small
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildUserGreeting(),
               const SizedBox(height: 24),
-              _buildQuickStats(), // This is where the magic happens
+              _buildQuickStats(),
               const SizedBox(height: 24),
               _buildHealthMetrics(),
               const SizedBox(height: 16),
@@ -255,13 +300,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Builds the greeting card displaying user information.
   Widget _buildUserGreeting() {
     final locals = AppLocalizations.of(context)!;
-
     final theme = Theme.of(context);
-
     final userProvider = Provider.of<UserProvider>(context);
-
     final user = userProvider.selectedUser!;
 
     return Card(
@@ -293,7 +336,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     )
                   : null,
             ),
-
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -314,7 +356,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-
             // Show swap user icon only if there's more than one user
             if (userProvider.users.length > 1)
               IconButton(
@@ -322,7 +363,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: theme.colorScheme.secondary,
                 onPressed: () {
                   setState(() {
-                    _isSelectingUser = true;
+                    _isSelectingUser = true; // Enter user selection mode
                   });
                 },
                 tooltip: locals.switchUser,
@@ -333,6 +374,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Builds a section with quick stats for blood pressure, blood sugar, and steps.
   Widget _buildQuickStats() {
     final locals = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
@@ -427,6 +469,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Helper widget to build a single statistic item.
   Widget _buildStatItem({
     required IconData icon,
     required String label,
@@ -457,6 +500,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  /// Builds the grid of health metric cards.
   Widget _buildHealthMetrics() {
     final locals = AppLocalizations.of(context)!;
 
@@ -472,10 +516,15 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 16),
         GridView.count(
           shrinkWrap: true,
+          // Occupy only the space needed
           physics: const NeverScrollableScrollPhysics(),
+          // Disable gridview scrolling
           crossAxisCount: 2,
+          // 2 columns in the grid
           crossAxisSpacing: 16,
+          // Spacing between columns
           mainAxisSpacing: 16,
+          // Spacing between rows
           children: [
             HealthMetricCard(
               title: locals.bloodPressure,
@@ -538,10 +587,10 @@ class _HomeScreenState extends State<HomeScreen> {
   // Refreshes data for all health metric providers.
   Future<void> _refreshData() async {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
-
     final selectedUser = userProvider.selectedUser;
 
     if (selectedUser != null) {
+      // Use Future.wait to load data concurrently for better performance.
       await Future.wait([
         Provider.of<BloodPressureProvider>(context, listen: false)
             .loadReadings(selectedUser.id),
@@ -552,6 +601,8 @@ class _HomeScreenState extends State<HomeScreen> {
         Provider.of<MedicationProvider>(context, listen: false)
             .loadMedications(selectedUser.id),
       ]);
+      debugPrint(
+          'HomeScreen: All health data refreshed for user ${selectedUser.id}');
     }
   }
 }
