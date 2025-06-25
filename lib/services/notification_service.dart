@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
-import 'package:timezone/data/latest_all.dart' as tz; // ✅ FIXED: use latest_all
+import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 class NotificationService {
@@ -16,45 +16,23 @@ class NotificationService {
     try {
       deviceTimeZoneName = await FlutterTimezone.getLocalTimezone();
       tz.setLocalLocation(tz.getLocation(deviceTimeZoneName));
-      debugPrint(
-          'NotificationService: Timezone set to device local: $deviceTimeZoneName');
-      debugPrint(
-          'NotificationService: Verified tz.local name: ${tz.local.name}');
-      debugPrint(
-          'NotificationService: Verified tz.local offset: ${tz.local.currentTimeZone.offset ~/ (1000 * 60 * 60)} hours');
     } catch (e) {
-      debugPrint(
-          'NotificationService: Error setting timezone ($deviceTimeZoneName): $e');
-      debugPrint('NotificationService: Attempting fallback to Asia/Yangon...');
       try {
         tz.setLocalLocation(tz.getLocation('Asia/Yangon'));
-        debugPrint('NotificationService: Fallback to Asia/Yangon succeeded.');
       } catch (e2) {
-        debugPrint(
-            'NotificationService: Asia/Yangon failed, trying Asia/Rangoon...');
-        try {
-          tz.setLocalLocation(tz.getLocation('Asia/Rangoon'));
-          debugPrint(
-              'NotificationService: Fallback to Asia/Rangoon succeeded.');
-        } catch (e3) {
-          debugPrint(
-              'NotificationService: All time zone fallbacks failed. Falling back to UTC.');
-          tz.setLocalLocation(tz.getLocation('UTC'));
-        }
+        tz.setLocalLocation(tz.getLocation('UTC'));
       }
-
-      debugPrint('NotificationService: Final tz.local: ${tz.local.name}');
     }
 
-    const AndroidInitializationSettings androidSettings =
+    const androidSettings =
         AndroidInitializationSettings('@mipmap/launcher_icon');
-    const DarwinInitializationSettings iosSettings =
-        DarwinInitializationSettings(
+    const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
-    const InitializationSettings initSettings = InitializationSettings(
+
+    const initSettings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
     );
@@ -71,8 +49,7 @@ class NotificationService {
   @pragma('vm:entry-point')
   static void _onNotificationTapped(NotificationResponse response) {
     if (response.payload != null && response.payload!.isNotEmpty) {
-      debugPrint(
-          'NotificationService: Notification tapped with payload: ${response.payload}');
+      debugPrint('Notification tapped with payload: ${response.payload}');
     }
   }
 
@@ -80,21 +57,15 @@ class NotificationService {
     final android = _notifications.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
     if (android != null) {
-      final granted = await android.requestNotificationsPermission() ?? false;
-      if (!granted)
-        debugPrint('NotificationService: Android permission not granted.');
-      return granted;
+      return await android.requestNotificationsPermission() ?? false;
     }
 
     final ios = _notifications.resolvePlatformSpecificImplementation<
         IOSFlutterLocalNotificationsPlugin>();
     if (ios != null) {
-      final granted =
-          await ios.requestPermissions(alert: true, badge: true, sound: true) ??
-              false;
-      if (!granted)
-        debugPrint('NotificationService: iOS permission not granted.');
-      return granted;
+      return await ios.requestPermissions(
+              alert: true, badge: true, sound: true) ??
+          false;
     }
     return false;
   }
@@ -123,7 +94,6 @@ class NotificationService {
     );
     await _notifications.show(id, title, body, notificationDetails,
         payload: payload);
-    debugPrint('NotificationService: Instant notification shown (ID: $id)');
   }
 
   static Future<void> scheduleNotification({
@@ -133,57 +103,62 @@ class NotificationService {
     required DateTime scheduledTime,
     String? payload,
     bool daily = false,
+    String notificationType = 'notification',
   }) async {
-    const androidDetails = AndroidNotificationDetails(
-      'health_tracker_channel',
-      'Health Tracker Notifications',
-      channelDescription: 'Notifications for health tracking reminders',
-      importance: Importance.high,
-      priority: Priority.high,
-    );
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-    const notificationDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
+    NotificationDetails notificationDetails;
 
-    final tz.TZDateTime finalScheduledTZDateTime =
-        tz.TZDateTime.from(scheduledTime, tz.local);
-
-    debugPrint('*** NotificationService: Scheduling Attempt ***');
-    debugPrint('ID: $id');
-    debugPrint('Title: $title');
-    debugPrint('Body: $body');
-    debugPrint('Raw scheduledTime (DateTime): $scheduledTime');
-    debugPrint(
-        'Final TZDateTime to schedule (tz.local): $finalScheduledTZDateTime');
-    debugPrint('Is TZDateTime UTC: ${finalScheduledTZDateTime.isUtc}');
-    debugPrint(
-        'TZDateTime Timezone name: ${finalScheduledTZDateTime.location.name}');
-    debugPrint(
-        'TZDateTime Timezone offset: ${finalScheduledTZDateTime.location.currentTimeZone.offset ~/ (1000 * 60 * 60)} hours');
-
-    try {
-      await _notifications.zonedSchedule(
-        id,
-        title,
-        body,
-        finalScheduledTZDateTime,
-        notificationDetails,
-        payload: payload,
-        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        matchDateTimeComponents: daily ? DateTimeComponents.time : null,
+    if (notificationType == 'alarm') {
+      const androidAlarmDetails = AndroidNotificationDetails(
+        'health_tracker_alarm_channel',
+        'Health Tracker Alarms',
+        channelDescription: 'High-priority alerts for medication alarms',
+        importance: Importance.max,
+        priority: Priority.max,
+        fullScreenIntent: true,
+        sound: RawResourceAndroidNotificationSound('alarm_sound'),
+        playSound: true,
+        enableVibration: true,
       );
-      debugPrint(
-          'NotificationService: Notification successfully scheduled (ID: $id)');
-    } catch (e) {
-      debugPrint(
-          'NotificationService: Error scheduling notification (ID: $id): $e');
+      const iosAlarmDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+      notificationDetails = NotificationDetails(
+        android: androidAlarmDetails,
+        iOS: iosAlarmDetails,
+      );
+    } else {
+      const androidDetails = AndroidNotificationDetails(
+        'health_tracker_channel',
+        'Health Tracker Notifications',
+        channelDescription: 'Notifications for health tracking reminders',
+        importance: Importance.high,
+        priority: Priority.high,
+      );
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+      notificationDetails = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
     }
+
+    final tzScheduled = tz.TZDateTime.from(scheduledTime, tz.local);
+
+    await _notifications.zonedSchedule(
+      id,
+      title,
+      body,
+      tzScheduled,
+      notificationDetails,
+      payload: payload,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      matchDateTimeComponents: daily ? DateTimeComponents.time : null,
+    );
   }
 
   static Future<void> scheduleDailyActivityNotification({
@@ -192,6 +167,7 @@ class NotificationService {
     required String body,
     required TimeOfDay scheduledTime,
     String? payload,
+    String notificationType = 'notification',
   }) async {
     final now = tz.TZDateTime.now(tz.local);
     tz.TZDateTime scheduledDate = tz.TZDateTime(
@@ -207,11 +183,6 @@ class NotificationService {
       scheduledDate = scheduledDate.add(const Duration(days: 1));
     }
 
-    debugPrint(
-        'NotificationService: Computed daily scheduledDate: $scheduledDate (for ID: $id)');
-    debugPrint(
-        'NotificationService: Is this date in the past? ${scheduledDate.isBefore(now)}');
-
     await scheduleNotification(
       id: id,
       title: title,
@@ -219,6 +190,7 @@ class NotificationService {
       scheduledTime: scheduledDate,
       payload: payload,
       daily: true,
+      notificationType: notificationType,
     );
   }
 
@@ -229,11 +201,9 @@ class NotificationService {
 
   static Future<void> cancelNotification(int id) async {
     await _notifications.cancel(id);
-    debugPrint('NotificationService: Notification cancelled (ID: $id)');
   }
 
   static Future<void> cancelAllNotifications() async {
     await _notifications.cancelAll();
-    debugPrint('NotificationService: All notifications cancelled');
   }
 }

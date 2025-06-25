@@ -13,6 +13,9 @@ class Medication {
   final String? notes;
   final DateTime createdAt;
 
+  // NEW: Add notificationType to store preference ('notification' or 'alarm')
+  final String notificationType; // 'notification' or 'alarm'
+
   Medication({
     required this.id,
     required this.userId,
@@ -26,8 +29,10 @@ class Medication {
     this.endDate,
     this.notes,
     required this.createdAt,
+    this.notificationType = 'notification', // Default to 'notification'
   });
 
+  /// Converts a Medication object to a Map for database storage.
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -36,15 +41,21 @@ class Medication {
       'dosage': dosage,
       'frequency': frequency,
       'reminder_times': reminderTimes.join(','),
+      // Store list as comma-separated string
       'instructions': instructions,
-      'is_active': isActive ? 1 : 0, // Store bool as int for database
+      'is_active': isActive ? 1 : 0,
+      // Store bool as int (1 for true, 0 for false)
       'start_date': startDate.millisecondsSinceEpoch,
+      // Store DateTime as millisecondsSinceEpoch
       'end_date': endDate?.millisecondsSinceEpoch,
       'notes': notes,
       'created_at': createdAt.millisecondsSinceEpoch,
+      'notification_type': notificationType,
+      // NEW: Add notificationType to map
     };
   }
 
+  /// Creates a Medication object from a Map retrieved from the database.
   factory Medication.fromMap(Map<String, dynamic> map) {
     return Medication(
       id: map['id']?.toString() ?? '',
@@ -53,8 +64,10 @@ class Medication {
       dosage: map['dosage']?.toString() ?? '',
       frequency: map['frequency'] as String? ?? 'onceDaily',
       reminderTimes: (map['reminder_times'] as String?)?.split(',') ?? [],
+      // Parse comma-separated string to list
       instructions: map['instructions'] as String?,
       isActive: (map['is_active'] as int?) == 1,
+      // Parse int back to bool
       startDate:
           DateTime.fromMillisecondsSinceEpoch(map['start_date'] as int? ?? 0),
       endDate: map['end_date'] != null
@@ -63,9 +76,12 @@ class Medication {
       notes: map['notes'] as String?,
       createdAt:
           DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int? ?? 0),
+      notificationType: map['notification_type'] as String? ??
+          'notification', // NEW: Parse notificationType from map
     );
   }
 
+  /// Creates a copy of the Medication object with optional updated fields.
   Medication copyWith({
     String? id,
     String? userId,
@@ -79,6 +95,7 @@ class Medication {
     DateTime? endDate,
     String? notes,
     DateTime? createdAt,
+    String? notificationType, // NEW: Add notificationType to copyWith
   }) {
     return Medication(
       id: id ?? this.id,
@@ -93,12 +110,14 @@ class Medication {
       endDate: endDate ?? this.endDate,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
+      notificationType:
+          notificationType ?? this.notificationType, // NEW: Assign copied value
     );
   }
 
   @override
   String toString() {
-    return 'Medication(id: $id, name: $name, dosage: $dosage, frequency: $frequency)';
+    return 'Medication(id: $id, name: $name, dosage: $dosage, frequency: $frequency, notificationType: $notificationType,)';
   }
 
   @override

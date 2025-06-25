@@ -8,7 +8,7 @@ import 'package:sqflite/sqflite.dart';
 import '../models/activity_model.dart';
 import '../models/blood_pressure_model.dart';
 import '../models/blood_sugar_model.dart';
-import '../models/medication_model.dart';
+import '../models/medication_model.dart'; // Ensure this model is updated with notificationType
 import '../models/user_model.dart';
 
 class DatabaseService {
@@ -31,13 +31,15 @@ class DatabaseService {
     final path = join(databasesPath, 'health_tracker.db');
     return await openDatabase(
       path,
-      version: 3, // <--- DATABASE VERSION
+      version: 4, // ⭐ UPDATED DATABASE VERSION TO 4 TO TRIGGER MIGRATION ⭐
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
   }
 
   Future<void> _onCreate(Database db, int version) async {
+    debugPrint('DatabaseService: Running _onCreate for version $version');
+
     // Create Users table
     await db.execute('''
         CREATE TABLE users (
@@ -115,6 +117,7 @@ class DatabaseService {
     end_date INTEGER,
     notes TEXT,
     created_at INTEGER NOT NULL,
+    notification_type TEXT NOT NULL DEFAULT 'notification', -- ⭐ NEW: ADDED THIS COLUMN HERE ⭐
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
     )
   ''');
@@ -131,15 +134,28 @@ class DatabaseService {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    debugPrint(
+        'DatabaseService: Running _onUpgrade from $oldVersion to $newVersion');
+
     if (oldVersion < 3) {
+      // These migrations were for version 3 (from an earlier version)
       await db.execute(
           'ALTER TABLE users ADD COLUMN has_diabetes INTEGER DEFAULT 0;');
-      debugPrint('Database upgrade: Added has_diabetes column to users table.');
+      debugPrint(
+          'Database upgrade (v3): Added has_diabetes column to users table.');
 
       await db.execute(
           'ALTER TABLE blood_sugar ADD COLUMN category TEXT DEFAULT "unknown";');
       debugPrint(
-          'Database upgrade: Added category column to blood_sugar table.');
+          'Database upgrade (v3): Added category column to blood_sugar table.');
+    }
+    // ⭐ NEW MIGRATION FOR VERSION 4 ⭐
+    if (oldVersion < 4) {
+      // This block will run if upgrading from version 3 to 4, or any version < 4
+      await db.execute(
+          "ALTER TABLE medications ADD COLUMN notification_type TEXT NOT NULL DEFAULT 'notification';");
+      debugPrint(
+          'Database upgrade (v4): Added notification_type column to medications table.');
     }
   }
 
@@ -393,7 +409,6 @@ class DatabaseService {
 
   Future<List<Map<String, dynamic>>> getDailyActivityDataForExport(
       String? userId) async {
-    // Changed to String?
     if (userId == null) return [];
     final db = await database;
     return await db.query(
@@ -447,7 +462,7 @@ class DatabaseService {
 
   Future<int> insertMedication(Medication medication) async {
     final db = await database;
-
+    // medication.toMap() now correctly includes 'notification_type'
     return await db.insert('medications', medication.toMap());
   }
 
@@ -479,6 +494,7 @@ class DatabaseService {
 
   Future<int> updateMedication(Medication medication) async {
     final db = await database;
+    // medication.toMap() now correctly includes 'notification_type'
     return await db.update(
       'medications',
       medication.toMap(),
