@@ -1,14 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_gen/gen_l10n/app_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:timezone/timezone.dart'
+    as tz; // Required for timezone operations
 import 'package:uuid/uuid.dart';
 
 import '../models/activity_model.dart';
 import '../providers/activity_provider.dart';
 import '../providers/user_provider.dart';
+import '../services/notification_service.dart'; // Import the NotificationService
 import '../utils/date_formatter.dart';
 import '../widgets/empty_state_widget.dart';
 import '../widgets/reading_list_item_widget.dart';
+
+// Unique IDs for the daily activity reminders
+const int ACTIVITY_4PM_REMINDER_ID = 100;
+const int ACTIVITY_515PM_REMINDER_ID = 101;
 
 class ActivityScreen extends StatefulWidget {
   const ActivityScreen({super.key});
@@ -18,6 +25,127 @@ class ActivityScreen extends StatefulWidget {
 }
 
 class _ActivityScreenState extends State<ActivityScreen> {
+  // Listener for ActivityProvider changes
+  late VoidCallback _activityProviderListener;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize the listener which will call our reminder management function
+    _activityProviderListener = () {
+      _manageDailyActivityReminders();
+    };
+
+    // Add a post-frame callback to ensure the listener is added and initial check
+    // is performed after the widget is fully built.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<ActivityProvider>(context, listen: false)
+          .addListener(_activityProviderListener);
+      _manageDailyActivityReminders(); // Initial check and setup of reminders
+    });
+  }
+
+  @override
+  void dispose() {
+    // Remove the listener to prevent memory leaks
+    Provider.of<ActivityProvider>(context, listen: false)
+        .removeListener(_activityProviderListener);
+    super.dispose();
+  }
+
+  /// Manages the scheduling and cancellation of daily activity reminder notifications.
+  /// This function is called when the screen initializes and whenever activity data changes.
+  Future<void> _manageDailyActivityReminders() async {
+    final activityProvider =
+        Provider.of<ActivityProvider>(context, listen: false);
+    final now =
+        tz.TZDateTime.now(tz.local); // Current time in local (Myanmar) timezone
+    final today =
+        DateTime.now(); // For date comparison, without time components
+
+    // Get all activities logged for the current day
+    final todayActivities = activityProvider.activities.where((activity) {
+      // Ensure createdAt is not null and activity date matches today's date
+      return activity.createdAt != null &&
+          activity.createdAt!.year == today.year &&
+          activity.createdAt!.month == today.month &&
+          activity.createdAt!.day == today.day;
+    }).toList();
+
+    bool hasActivityLoggedTodayBefore4PM = false;
+    bool hasActivityLoggedTodayBetween4PMAnd515PM = false;
+
+    // Define the critical time points in today's local timezone
+    final fourPmToday =
+        tz.TZDateTime(tz.local, now.year, now.month, now.day, 16, 0);
+    final fiveFifteenPmToday =
+        tz.TZDateTime(tz.local, now.year, now.month, now.day, 17, 15);
+
+    // Check if any activity was logged today before 4:00 PM or between 4:00 PM and 5:15 PM
+    for (var activity in todayActivities) {
+      // Ensure activity.createdAt is treated in the local timezone for comparison
+      final activityLoggedTime =
+          tz.TZDateTime.from(activity.createdAt!, tz.local);
+
+      if (activityLoggedTime.isBefore(fourPmToday)) {
+        hasActivityLoggedTodayBefore4PM = true;
+        // If an activity is found before 4PM, no need to check further for this condition
+        // within the loop. Other activities might still fulfill the 4-5:15 PM condition.
+      } else if (activityLoggedTime.isAfter(fourPmToday) &&
+          activityLoggedTime.isBefore(fiveFifteenPmToday)) {
+        hasActivityLoggedTodayBetween4PMAnd515PM = true;
+      }
+    }
+
+    // Decision Logic for scheduling/cancelling notifications
+    if (hasActivityLoggedTodayBefore4PM) {
+      // Scenario 1: User completed activity before 4 PM. Cancel both reminders.
+      await NotificationService.cancelNotification(ACTIVITY_4PM_REMINDER_ID);
+      await NotificationService.cancelNotification(ACTIVITY_515PM_REMINDER_ID);
+      debugPrint(
+          'ActivityScreen: Activity completed before 4 PM. Cancelling both daily reminders.');
+    } else if (hasActivityLoggedTodayBetween4PMAnd515PM) {
+      // Scenario 2: User completed activity between 4 PM and 5:15 PM.
+      // The 4PM notification might have fired already or was scheduled for tomorrow.
+      // We explicitly cancel only the 5:15 PM notification.
+      await NotificationService.cancelNotification(ACTIVITY_515PM_REMINDER_ID);
+      // Ensure the 4PM reminder is correctly handled. If it passed, it will be scheduled for tomorrow.
+      // If the function is called shortly after 4PM and no activity was before 4PM,
+      // this will ensure it's still scheduled for tomorrow if it just passed.
+      await NotificationService.scheduleDailyActivityNotification(
+        id: ACTIVITY_4PM_REMINDER_ID,
+        title: 'Daily Activity Reminder',
+        body: 'Remember to log your daily activity!',
+        scheduledTime: const TimeOfDay(hour: 16, minute: 0),
+        // 4:00 PM
+        payload: 'activity_reminder_4pm',
+      );
+      debugPrint(
+          'ActivityScreen: Activity completed between 4 PM and 5:15 PM. Cancelling 5:15 PM reminder.');
+    } else {
+      // Scenario 3: No activity logged before 4 PM AND no activity between 4 PM and 5:15 PM yet.
+      // Both reminders should be active or scheduled for today/tomorrow as appropriate.
+      await NotificationService.scheduleDailyActivityNotification(
+        id: ACTIVITY_4PM_REMINDER_ID,
+        title: 'Daily Activity Reminder',
+        body: 'Remember to log your daily activity!',
+        scheduledTime: const TimeOfDay(hour: 16, minute: 0),
+        // 4:00 PM
+        payload: 'activity_reminder_4pm',
+      );
+      await NotificationService.scheduleDailyActivityNotification(
+        id: ACTIVITY_515PM_REMINDER_ID,
+        title: 'Daily Activity Reminder',
+        body: 'Remember to log your daily activity! (Last Chance)',
+        scheduledTime: const TimeOfDay(hour: 17, minute: 15),
+        // 5:15 PM
+        payload: 'activity_reminder_515pm',
+      );
+      debugPrint(
+          'ActivityScreen: No relevant activity logged yet. Scheduling/ensuring both daily activity reminders are set.');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final locals = AppLocalizations.of(context)!;
@@ -30,6 +158,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
             icon: const Icon(Icons.analytics),
             onPressed: _showStatsDialog,
           ),
+          // The temporary test notification buttons have been removed as requested.
         ],
       ),
       body: Consumer<ActivityProvider>(
@@ -84,6 +213,8 @@ class _ActivityScreenState extends State<ActivityScreen> {
   Widget _buildSummaryCard(ActivityProvider provider) {
     final locals = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
+    // These methods from ActivityProvider calculate aggregates for the last 'period' days.
+    // period=1 means 'today'.
     final totalStepsToday = provider.getTotalStepsForPeriod(1);
     final totalCaloriesToday = provider.getTotalCaloriesForPeriod(1);
     final totalDistanceToday = provider.getTotalDistanceForPeriod(1);
@@ -161,14 +292,17 @@ class _ActivityScreenState extends State<ActivityScreen> {
     );
   }
 
+  /// Shows the dialog for adding a new activity.
   void _showAddActivityDialog() {
     _showActivityDialog();
   }
 
+  /// Shows the dialog for editing an existing activity.
   void _showEditActivityDialog(Activity activity) {
     _showActivityDialog(activity: activity);
   }
 
+  /// Generic method to show the activity add/edit dialog.
   void _showActivityDialog({Activity? activity}) {
     final locals = AppLocalizations.of(context)!;
     final stepsController = TextEditingController(
@@ -333,6 +467,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     );
   }
 
+  /// Saves or updates an activity record and triggers a check for daily reminders.
   void _saveActivity(
     Activity? existingActivity,
     String type,
@@ -351,7 +486,10 @@ class _ActivityScreenState extends State<ActivityScreen> {
     final userProvider = Provider.of<UserProvider>(context, listen: false);
     final userId = userProvider.selectedUser?.id;
 
-    if (userId == null) return;
+    if (userId == null) {
+      debugPrint('Error: User ID is null. Cannot save activity.');
+      return;
+    }
 
     final provider = Provider.of<ActivityProvider>(context, listen: false);
 
@@ -378,13 +516,14 @@ class _ActivityScreenState extends State<ActivityScreen> {
           duration: duration,
           date: date,
           notes: notes.isEmpty ? null : notes,
-          createdAt: DateTime.now(),
+          createdAt:
+              DateTime.now(), // Set creation timestamp when adding new activity
         );
         await provider.addActivity(newActivity);
       }
 
       if (mounted) {
-        Navigator.pop(context);
+        Navigator.pop(context); // Close the dialog
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(existingActivity != null
@@ -402,6 +541,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     }
   }
 
+  /// Deletes an activity record and triggers a check for daily reminders.
   void _deleteActivity(String activityId) async {
     final locals = AppLocalizations.of(context)!;
 
@@ -443,6 +583,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     }
   }
 
+  /// Shows a dialog with activity statistics for the last 7 days.
   void _showStatsDialog() {
     final locals = AppLocalizations.of(context)!;
     final provider = Provider.of<ActivityProvider>(context, listen: false);
@@ -482,6 +623,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     );
   }
 
+  /// Helper widget to build a row for statistics display.
   Widget _buildStatRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -498,6 +640,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     );
   }
 
+  /// Returns an appropriate icon based on the activity type.
   IconData _getIconForActivityType(String type) {
     switch (type) {
       case 'walking':
@@ -515,6 +658,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     }
   }
 
+  /// Returns an appropriate color based on the activity type.
   Color _getColorForActivityType(String type) {
     switch (type) {
       case 'walking':
@@ -532,6 +676,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
     }
   }
 
+  /// Returns a localized string for the activity type.
   String _getActivityTypeText(String type, AppLocalizations locals) {
     switch (type) {
       case 'walking':

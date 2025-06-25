@@ -1,4 +1,3 @@
-// user_model.dart
 class User {
   final String id;
   final String name;
@@ -45,24 +44,15 @@ class User {
 
   factory User.fromMap(Map<String, dynamic> map) {
     return User(
-      // Ensure 'id' is a String. Use toString() to convert if it's not.
       id: map['id']?.toString() ?? '',
-      // Ensure 'name' is a String.
       name: map['name']?.toString() ?? '',
-      // Cast to num? then toInt() for safety, provide default.
       age: (map['age'] as num?)?.toInt() ?? 0,
-      // Ensure 'gender' is a String.
       gender: map['gender']?.toString() ?? '',
-      // Cast to num? then toDouble() for safety, allow null.
       weight: (map['weight'] as num?)?.toDouble(),
-      // Cast to num? then toDouble() for safety, allow null.
       height: (map['height'] as num?)?.toDouble(),
-      // Cast to int? then provide default for millisecondsSinceEpoch.
-      // Read from map
       photoPath: map['photo_path']?.toString(),
       createdAt:
           DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int? ?? 0),
-      // Cast to int? then provide default for millisecondsSinceEpoch.
       updatedAt:
           DateTime.fromMillisecondsSinceEpoch(map['updated_at'] as int? ?? 0),
       hasDiabetes: map['has_diabetes'] == 1
@@ -99,7 +89,7 @@ class User {
 
   @override
   String toString() {
-    return 'User(id: $id, name: $name, age: $age, gender: $gender, weight: $weight, height: $height, photoPath: $photoPath, hasDiabetes: $hasDiabetes)';
+    return 'User(id: $id, name: $name, age: $age, gender: $gender, weight: $weight, height: $height, photoPath: $photoPath, hasDiabetes: $hasDiabetes,)';
   }
 
   @override

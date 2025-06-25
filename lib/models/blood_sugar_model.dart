@@ -1,14 +1,12 @@
-
-
 class BloodSugar {
   final String id;
   final String userId;
   final double glucose;
-  final String measurementType; // fasting, postMeal, random
+  final String measurementType;
   final DateTime dateTime;
   final String? notes;
   final DateTime createdAt;
-  final String category; // <--- This MUST be a field, not a getter
+  final String category;
 
   BloodSugar({
     required this.id,
@@ -57,7 +55,7 @@ class BloodSugar {
     DateTime? dateTime,
     String? notes,
     DateTime? createdAt,
-    String? category, // <--- Add to copyWith
+    String? category,
   }) {
     return BloodSugar(
       id: id ?? this.id,
@@ -67,12 +65,9 @@ class BloodSugar {
       dateTime: dateTime ?? this.dateTime,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
-      category: category ?? this.category, // <--- Assign in copyWith
+      category: category ?? this.category,
     );
   }
-
-  // Remove the `category` getter from here.
-  // The category should be calculated in BloodSugarScreen and stored.
 
   @override
   String toString() {

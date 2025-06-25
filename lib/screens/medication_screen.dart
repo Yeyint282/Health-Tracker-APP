@@ -635,6 +635,7 @@ class _MedicationScreenState extends State<MedicationScreen> {
   }
 
   Future<void> _scheduleMedicationNotifications(Medication medication) async {
+    final locals = AppLocalizations.of(context)!;
     for (int i = 0; i < medication.reminderTimes.length; i++) {
       final timeParts = medication.reminderTimes[i].split(':');
       final time = TimeOfDay(
@@ -645,7 +646,7 @@ class _MedicationScreenState extends State<MedicationScreen> {
       await NotificationService.scheduleDailyActivityNotification(
         id: notificationId,
         title: 'Medication Reminder: ${medication.name}',
-        body: 'Time to take your medicine.',
+        body: locals.timeToTakeYourMedicine,
         scheduledTime: time,
         payload: 'medications/${medication.id}',
       );

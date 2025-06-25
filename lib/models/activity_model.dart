@@ -40,26 +40,17 @@ class Activity {
 
   factory Activity.fromMap(Map<String, dynamic> map) {
     return Activity(
-      // Ensure 'id' is treated as a String. If it comes as an int from the map,
-      // convert it to a String. Provide a default or throw if essential.
       id: map['id']?.toString() ?? '',
       userId: map['user_id'] as String,
       type: map['type'] as String? ?? 'walking',
-      // Explicitly cast and provide default
       steps: (map['steps'] as num?)?.toInt() ?? 0,
-      // Use num for flexibility then toInt
       calories: (map['calories'] as num?)?.toDouble() ?? 0.0,
-      // Use num then toDouble
       distance: (map['distance'] as num?)?.toDouble() ?? 0.0,
-      // Use num then toDouble
       duration: (map['duration'] as num?)?.toInt() ?? 0,
-      // Use num then toInt
       date: DateTime.fromMillisecondsSinceEpoch(map['date'] as int? ?? 0),
-      // Cast to int? then provide default
       notes: map['notes'] as String?,
-      // Already correct
-      createdAt: DateTime.fromMillisecondsSinceEpoch(
-          map['created_at'] as int? ?? 0), // Cast to int? then provide default
+      createdAt:
+          DateTime.fromMillisecondsSinceEpoch(map['created_at'] as int? ?? 0),
     );
   }
 
