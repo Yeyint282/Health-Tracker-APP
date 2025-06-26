@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../models/user_model.dart';
 import '../providers/user_provider.dart';
-import '../widgets/user_profile_setup_widget.dart'; // Ensure this path is correct
+import '../widgets/user_profile_setup_widget.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final User? userToEdit;
@@ -31,17 +31,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final locals = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(locals.profileTitle),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.person_add),
-            onPressed: _navigateToUserSetup,
-          ),
-        ],
-      ),
       body: Consumer<UserProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading) {
@@ -54,28 +46,166 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             return _buildEmptyState();
           }
 
-          return Column(
-            children: [
-              _buildWelcomeCard(provider),
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: provider.users.length,
-                  itemBuilder: (context, index) {
-                    final user = provider.users[index];
-                    final isSelected = provider.selectedUser?.id == user.id;
-                    return _buildUserCard(user, isSelected, provider);
-                  },
+          final User? selectedUser = provider.selectedUser;
+
+          return CustomScrollView(
+            slivers: [
+              SliverAppBar(
+                expandedHeight: 250.0,
+                // Increased height for more space
+                floating: false,
+                pinned: true,
+                stretch: true,
+                // Allows stretching when over-scrolled
+                backgroundColor: theme.colorScheme.primary,
+                // Default background
+                flexibleSpace: FlexibleSpaceBar(
+                  centerTitle: false,
+                  // Align title to start
+                  titlePadding: const EdgeInsets.only(left: 20, bottom: 16),
+                  // Adjusted padding
+                  title: selectedUser != null
+                      ? Text(
+                          selectedUser.name,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            color: theme.colorScheme.onPrimary,
+                            fontWeight: FontWeight.bold,
+                            shadows: [
+                              Shadow(
+                                offset: const Offset(1, 1),
+                                blurRadius: 3.0,
+                                color: Colors.black.withOpacity(0.5),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Text(
+                          locals.profileTitle,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            color: theme.colorScheme.onPrimary,
+                            fontWeight: FontWeight.bold,
+                            shadows: [
+                              Shadow(
+                                offset: const Offset(1, 1),
+                                blurRadius: 3.0,
+                                color: Colors.black.withOpacity(0.5),
+                              ),
+                            ],
+                          ),
+                        ),
+                  background: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (selectedUser != null &&
+                          selectedUser.photoPath != null &&
+                          selectedUser.photoPath!.isNotEmpty)
+                        Image.file(
+                          File(selectedUser.photoPath!),
+                          fit: BoxFit.cover,
+                        )
+                      else
+                        Container(
+                          color: theme.colorScheme.primary,
+                          child: Center(
+                            child: Icon(
+                              Icons.person_outline,
+                              size: 100,
+                              color:
+                                  theme.colorScheme.onPrimary.withOpacity(0.7),
+                            ),
+                          ),
+                        ),
+                      // Gradient Overlay for better readability and aesthetic
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Colors.transparent,
+                              Colors.black.withOpacity(0.2),
+                              // Subtle dark at top
+                              Colors.black.withOpacity(0.5),
+                              // Stronger dark at bottom
+                            ],
+                            stops: const [
+                              0.5,
+                              0.7,
+                              1.0
+                            ], // Control gradient spread
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.person_add),
+                    onPressed: _navigateToUserSetup,
+                    color: theme
+                        .colorScheme.onPrimary, // Ensure icon color is visible
+                  ),
+                ],
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (selectedUser != null) ...[
+                        Text(
+                          locals.selectedProfileDetails,
+                          style: theme.textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.onBackground,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildMetricGrid(selectedUser, locals, theme),
+                        const SizedBox(height: 32),
+                        // Increased space after metrics
+                        Divider(color: theme.colorScheme.outlineVariant),
+                        // Themed divider
+                        const SizedBox(height: 24),
+                      ],
+                      Text(
+                        locals.manageProfiles,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onBackground,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Column(
+                        children: provider.users.map((user) {
+                          final isSelected =
+                              provider.selectedUser?.id == user.id;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12.0),
+                            child: _buildUserItem(
+                                user, isSelected, provider, theme, locals),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _navigateToUserSetup,
-        child: const Icon(Icons.person_add),
-      ),
+      // floatingActionButton: FloatingActionButton.extended(
+      //   // Changed to extended for more detail
+      //   onPressed: _navigateToUserSetup,
+      //   icon: const Icon(Icons.person_add),
+      //   label: Text(locals.addUser),
+      //   // Add user text
+      //   backgroundColor: theme.colorScheme.primary,
+      //   foregroundColor: theme.colorScheme.onPrimary,
+      // ),
     );
   }
 
@@ -124,34 +254,101 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  Widget _buildWelcomeCard(UserProvider provider) {
-    final locals = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
+  Widget _buildMetricGrid(User user, AppLocalizations locals, ThemeData theme) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final int crossAxisCount = constraints.maxWidth > 600 ? 3 : 2;
+        final double desiredHeight = 130.0;
+        final double itemAspectRatio =
+            (constraints.maxWidth / crossAxisCount) / desiredHeight;
 
-    return Card(
-      margin: const EdgeInsets.all(16),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: 3,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 16.0,
+            mainAxisSpacing: 16.0,
+            childAspectRatio: itemAspectRatio,
+          ),
+          itemBuilder: (context, index) {
+            switch (index) {
+              case 0:
+                return _buildMetricItem(
+                  icon: Icons.cake_outlined,
+                  label: locals.age,
+                  value: '${user.age}',
+                  theme: theme,
+                );
+              case 1:
+                return _buildMetricItem(
+                  icon: Icons.fitness_center,
+                  label: locals.weight,
+                  value: user.weight != null
+                      ? '${user.weight!.toStringAsFixed(1)} ${locals.kg}'
+                      : locals.notSet,
+                  theme: theme,
+                );
+              case 2:
+                return _buildMetricItem(
+                  icon: Icons.height,
+                  label: locals.height,
+                  value: user.height != null
+                      ? '${user.height!.toStringAsFixed(1)} ${locals.cm}'
+                      : locals.notSet,
+                  theme: theme,
+                );
+              default:
+                return const SizedBox.shrink();
+            }
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildMetricItem({
+    required IconData icon,
+    required String label,
+    required String value,
+    required ThemeData theme,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+        // Slightly less opaque
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.shadow.withOpacity(0.06), // Softer shadow
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.health_and_safety,
-                  color: theme.colorScheme.primary,
-                  size: 32,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    '${locals.welcome} ${provider.selectedUser?.name ?? ''}',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+            Icon(icon, size: 36, color: theme.colorScheme.primary),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            Text(
+              value,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -159,64 +356,89 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  Widget _buildUserCard(
+  Widget _buildUserItem(
     User user,
     bool isSelected,
     UserProvider provider,
+    ThemeData theme,
+    AppLocalizations locals,
   ) {
-    final locals = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
     Key avatarKey =
         ValueKey('user_avatar_${user.id}_${user.photoPath ?? 'no_photo'}');
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: isSelected ? 8 : 2,
-      color: isSelected ? theme.colorScheme.primaryContainer : null,
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
-        leading: CircleAvatar(
-          key: avatarKey,
-          radius: 30,
-          backgroundColor: theme.colorScheme.primary,
-          backgroundImage:
-              (user.photoPath != null && user.photoPath!.isNotEmpty)
-                  ? FileImage(File(user.photoPath!))
-                  : null,
-          child: (user.photoPath == null || user.photoPath!.isEmpty)
-              ? Text(
-                  user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                )
-              : null,
-        ),
-        title: Text(
-          user.name,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: isSelected ? theme.colorScheme.onPrimaryContainer : null,
-          ),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '${locals.age}: ${user.age} • ${_getGenderText(user.gender, locals)}',
-              style: TextStyle(
-                color: isSelected
-                    ? theme.colorScheme.onPrimaryContainer.withOpacity(0.8)
-                    : theme.colorScheme.onSurface.withOpacity(0.7),
-              ),
+    return GestureDetector(
+      onTap: isSelected ? null : () => _selectUser(user, provider),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? theme.colorScheme.primaryContainer
+              : theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: isSelected
+                  ? theme.colorScheme.primary
+                      .withOpacity(0.25) // Softer selected shadow
+                  : theme.colorScheme.shadow.withOpacity(0.08),
+              // Softer general shadow
+              blurRadius: isSelected ? 10 : 6,
+              offset: Offset(0, isSelected ? 5 : 3),
             ),
           ],
+          border: isSelected
+              ? Border.all(color: theme.colorScheme.primary, width: 2)
+              : null,
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
           children: [
+            CircleAvatar(
+              key: avatarKey,
+              radius: 30,
+              backgroundColor: theme.colorScheme.primary.withOpacity(0.8),
+              // Slightly transparent for depth
+              backgroundImage:
+                  (user.photoPath != null && user.photoPath!.isNotEmpty)
+                      ? FileImage(File(user.photoPath!))
+                      : null,
+              child: (user.photoPath == null || user.photoPath!.isEmpty)
+                  ? Text(
+                      user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                      style: TextStyle(
+                        color: theme.colorScheme.onPrimary,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user.name,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: isSelected
+                          ? theme.colorScheme.onPrimaryContainer
+                          : theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${locals.age}: ${user.age} • ${_getGenderText(user.gender, locals)}',
+                    style: TextStyle(
+                      color: isSelected
+                          ? theme.colorScheme.onPrimaryContainer
+                              .withOpacity(0.8)
+                          : theme.colorScheme.onSurface.withOpacity(0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             if (isSelected)
               Padding(
                 padding: const EdgeInsets.only(right: 8.0),
@@ -279,7 +501,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ),
           ],
         ),
-        onTap: isSelected ? null : () => _selectUser(user, provider),
       ),
     );
   }
@@ -313,7 +534,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
     String? selectedGender = user.gender;
 
-    // Initialize with existing photo path if any
     final ValueNotifier<File?> imageFileNotifier = ValueNotifier<File?>(
       (user.photoPath != null && user.photoPath!.isNotEmpty)
           ? File(user.photoPath!)
@@ -365,7 +585,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     }
                                   },
                                 ),
-                                // Show remove option if there's currently a photo OR if one was just picked but not saved yet
                                 // if (currentImageFile != null ||
                                 //     (user.photoPath != null &&
                                 //         user.photoPath!.isNotEmpty))
@@ -485,7 +704,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              // Pass the current value of the notifier directly
               _saveUserUpdates(
                 user,
                 nameController.text,
@@ -493,7 +711,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 selectedGender ?? 'other',
                 weightController.text,
                 heightController.text,
-                imageFileNotifier.value, // Pass the File? directly
+                imageFileNotifier.value,
               );
             },
             child: Text(locals.save),
@@ -502,12 +720,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       ),
     );
 
-    imageFileNotifier.dispose(); // Dispose the notifier when dialog closes
-
-    // No need to call loadUsers here, provider will notify based on internal state changes
-    // if (mounted) {
-    //   Provider.of<UserProvider>(context, listen: false).loadUsers();
-    // }
+    imageFileNotifier.dispose();
   }
 
   void _saveUserUpdates(
@@ -517,7 +730,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     String gender,
     String weightText,
     String heightText,
-    File? newImageFile, // This will be null if "Remove Photo" was tapped
+    File? newImageFile,
   ) async {
     if (name.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -536,20 +749,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final weight = weightText.isEmpty ? null : double.tryParse(weightText);
     final height = heightText.isEmpty ? null : double.tryParse(heightText);
 
-    // This is the core fix for the photo path
-    // If newImageFile is null, it means either:
-    // 1. User tapped "Remove Photo" (imageFileNotifier.value became null)
-    // 2. User didn't pick a new photo and original was null
-    // 3. User didn't pick a new photo and original was not null (so newImageFile is null, photoPath remains original)
-    // We only want to clear the path if newImageFile is explicitly null AND
-    // the original photo path was not null.
     String? photoPathToSave;
     if (newImageFile == null) {
-      // User has either removed the photo or didn't select a new one.
-      // We set it to null here to explicitly clear it in the model.
       photoPathToSave = null;
     } else {
-      // A new image file was provided
       photoPathToSave = newImageFile.path;
     }
 
@@ -560,7 +763,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       weight: weight,
       height: height,
       photoPath: photoPathToSave,
-      // Use the determined path
       createdAt: originalUser.createdAt,
       updatedAt: DateTime.now(),
     );
@@ -570,10 +772,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     try {
       final provider = Provider.of<UserProvider>(context, listen: false);
-      // We pass the updatedUser to the provider
       await provider.updateUser(updatedUser);
       if (mounted) {
-        Navigator.pop(context); // Close the dialog
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated successfully')),
         );
@@ -636,8 +837,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       ),
     )
         .then((_) {
-      // No need to call loadUsers here, provider's listeners will handle it
-      // Provider.of<UserProvider>(context, listen: false).loadUsers();
+      // The provider's listeners will handle refreshing the UI
     });
   }
 

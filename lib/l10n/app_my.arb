@@ -161,5 +161,8 @@
   "allRecords": "မှတ်တမ်းအားလုံး",
   "noDataToExport": "တင်ပို့ရန် ကျန်းမာရေးဒေတာမရှိပါ",
   "timeToTakeYourMedicine": "ဆေးသောက်ရန်အချိန်",
-  "dailyWalk": "ကျန်းမာသန်စွမ်းသောဘဝအတွက် တစ်နေ့လျှင် အနည်းဆုံး မိနစ်30ခန့် လမ်းလျှောက်ပါ။"
+  "dailyWalk": "ကျန်းမာသန်စွမ်းသောဘဝအတွက် တစ်နေ့လျှင် အနည်းဆုံး မိနစ်30ခန့် လမ်းလျှောက်ပါ။",
+  "selectedProfileDetails": "Selected Profile Details",
+  "notSet": "Not Set",
+  "addUser": "Add User"
 }

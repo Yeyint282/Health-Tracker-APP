@@ -161,5 +161,8 @@
   "allRecords": "All Records",
   "noDataToExport": "No health data available for export.",
   "timeToTakeYourMedicine": "Time to take your medicine.",
-  "dailyWalk": "Walk for al least 30 minutes a day for a healthier life"
+  "dailyWalk": "Walk for al least 30 minutes a day for a healthier life",
+  "selectedProfileDetails": "Selected Profile Details",
+  "notSet": "Not Set",
+  "addUser": "Add User"
 }
